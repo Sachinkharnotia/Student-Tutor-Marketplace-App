@@ -33,16 +33,16 @@ export default function App() {
   const [time, setTime] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // London Clock Effect
+  // India Clock Effect
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      const londonTime = now.toLocaleTimeString('en-GB', {
-        timeZone: 'Europe/London',
+      const indiaTime = now.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
         hour: '2-digit',
         minute: '2-digit',
       });
-      setTime(`${londonTime} in London`);
+      setTime(`${indiaTime} in India`);
     };
     updateTime();
     const int = setInterval(updateTime, 1000);
