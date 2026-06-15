@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TUTOR
+  ADMIN
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  isVerified Boolean @default(false)
+  otp        String?
+  otpExpiry  DateTime?
+  isSuspended Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  studentProfile StudentProfile?
+  tutorProfile   TutorProfile?
+
+  bookingsAsStudent Booking[] @relation("StudentBookings")
+  bookingsAsTutor   Booking[] @relation("TutorBookings")
+}
+
+model StudentProfile {
+  id      String @id @default(uuid())
+  userId  String @unique
+  phone   String?
+  user    User   @relation(fields: [userId], references: [id])
+}
+
+model TutorProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  phone       String?
+  kycDocument String?  // URL to Cloudinary
+  kycStatus   KycStatus @default(PENDING)
+  subjects    String[]
+  hourlyRate  Float?
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Booking {
+  id            String   @id @default(uuid())
+  studentId     String
+  tutorId       String
+  student       User     @relation("StudentBookings", fields: [studentId], references: [id])
+  tutor         User     @relation("TutorBookings", fields: [tutorId], references: [id])
+  status        BookingStatus @default(PENDING)
+  startTime     DateTime
+  endTime       DateTime
+  amount        Float
+  paymentStatus String   @default("PENDING") // PENDING, PAID, FAILED
+  paymentId     String?  // Razorpay Payment ID
+  refundStatus  String?  // e.g. "PENDING", "REFUNDED"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  review        Review?
+  dispute       Dispute?
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  bookingId String   @unique
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+}
+
+model Dispute {
+  id          String   @id @default(uuid())
+  bookingId   String   @unique
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  reason      String
+  status      String   @default("OPEN") // OPEN, RESOLVED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
