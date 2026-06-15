@@ -14,7 +14,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -30,12 +30,16 @@ jobs:
         working-directory: ./mobile
         run: npx expo prebuild --platform android --no-install
 
-      - name: Build APK (Release)
+      - name: Grant execute permission for gradlew
         working-directory: ./mobile/android
-        run: ./gradlew assembleRelease
+        run: chmod +x gradlew
+
+      - name: Build APK (Debug)
+        working-directory: ./mobile/android
+        run: ./gradlew assembleDebug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EducatorHub-v1-release
-          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          name: EducatorHub-v1-debug
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
