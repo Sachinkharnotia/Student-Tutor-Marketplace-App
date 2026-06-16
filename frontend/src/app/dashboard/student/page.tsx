@@ -103,7 +103,7 @@ export default function StudentDashboard() {
       const createRes = await fetch("http://localhost:4000/api/booking/create", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ tutorId: selectedTutor.id, startTime: start.toISOString(), endTime: end.toISOString(), amount: selectedTutor.hourlyRate })
+        body: JSON.stringify({ tutorId: selectedTutor.userId, startTime: start.toISOString(), endTime: end.toISOString(), amount: selectedTutor.hourlyRate })
       });
       const createData = await createRes.json();
 
