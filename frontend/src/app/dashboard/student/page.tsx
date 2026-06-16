@@ -18,7 +18,19 @@ export default function StudentDashboard() {
   const [otp, setOtp] = useState("");
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const [tutors, setTutors] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -48,7 +60,7 @@ export default function StudentDashboard() {
 
   const handleCompleteProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone) return alert("Please enter your phone number.");
+    if (!phone) return showToast("Please enter your phone number.", "error");
     setIsUpdating(true);
     const token = localStorage.getItem("token");
     try {
@@ -58,16 +70,15 @@ export default function StudentDashboard() {
         body: JSON.stringify({ phone })
       });
       if (res.ok) {
-        setToastMessage("Profile completed! Sent for admin approval.");
-        setTimeout(() => setToastMessage(""), 3000);
+        showToast("Profile completed! Sent for admin approval.", "success");
         fetchData();
       } else {
         const err = await res.json();
-        alert(err.error || "Failed to update profile");
+        showToast(err.error || "Failed to update profile", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Error updating profile");
+      showToast("Error updating profile", "error");
     } finally {
       setIsUpdating(false);
     }
@@ -130,7 +141,7 @@ export default function StudentDashboard() {
 
   const handleVerifyOtpDashboard = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otp) return alert("Please enter the OTP.");
+    if (!otp) return showToast("Please enter the OTP.", "error");
     setIsVerifyingOtp(true);
     try {
       const res = await fetch("http://localhost:4000/api/auth/verify-otp", {
@@ -140,19 +151,18 @@ export default function StudentDashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        setToastMessage("OTP verified successfully!");
-        setTimeout(() => setToastMessage(""), 3000);
+        showToast("OTP verified successfully!", "success");
         const updatedUser = { ...user, isVerified: true };
         setUser(updatedUser);
         localStorage.setItem("user", JSON.stringify(updatedUser));
         localStorage.setItem("token", data.token);
         fetchData();
       } else {
-        alert(data.error || "Verification failed");
+        showToast(data.error || "Verification failed", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Error verifying OTP");
+      showToast("Error verifying OTP", "error");
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -169,7 +179,7 @@ export default function StudentDashboard() {
   };
 
   const handleBookSlot = async () => {
-    if (!selectedTutor || !bookingDate || !bookingTime) return alert("Select date and time.");
+    if (!selectedTutor || !bookingDate || !bookingTime) return showToast("Select date and time.", "error");
     setIsBooking(true);
     const token = localStorage.getItem("token");
 
@@ -179,7 +189,7 @@ export default function StudentDashboard() {
     const start = new Date(year, month - 1, day, hour, minute, 0);
 
     if (isNaN(start.getTime())) {
-      alert("Invalid date or time selected. Please select a valid slot.");
+      showToast("Invalid date or time selected. Please select a valid slot.", "error");
       setIsBooking(false);
       return;
     }
@@ -214,7 +224,7 @@ export default function StudentDashboard() {
             });
 
             if (verifyRes.ok) {
-              alert("Payment Successful! Booking Confirmed.");
+              showToast("Payment Successful! Booking Confirmed.", "success");
               setSelectedTutor(null);
               setActiveTab('sessions');
               fetchData();
@@ -234,7 +244,7 @@ export default function StudentDashboard() {
 
         const rzp = new (window as any).Razorpay(options);
         rzp.on('payment.failed', function (response: any) {
-          alert("Payment Failed: " + response.error.description);
+          showToast("Payment Failed: " + response.error.description, "error");
           setIsBooking(false);
         });
         rzp.open();
@@ -264,7 +274,7 @@ export default function StudentDashboard() {
     const file = e.target.files[0];
     const token = localStorage.getItem("token");
     
-    setToastMessage("Uploading file...");
+    showToast("Uploading file...", "info");
     const formData = new FormData();
     formData.append("file", file);
     
@@ -279,15 +289,12 @@ export default function StudentDashboard() {
         const messageData = { room: activeChat.id, senderId: user.id, message: `[FILE] ${data.url}` };
         socket.emit("send_message", messageData);
         setChatMessages((prev) => [...prev, messageData]);
-        setToastMessage("File sent!");
-        setTimeout(() => setToastMessage(""), 3000);
+        showToast("File sent!", "success");
       } else {
-        setToastMessage("Upload failed");
-        setTimeout(() => setToastMessage(""), 3000);
+        showToast("Upload failed", "error");
       }
     } catch (err) {
-      setToastMessage("Upload error");
-      setTimeout(() => setToastMessage(""), 3000);
+      showToast("Upload error", "error");
     }
   };
 
@@ -316,18 +323,15 @@ export default function StudentDashboard() {
           body: JSON.stringify({ phone })
         });
         
-        setToastMessage("Profile updated successfully!");
-        setTimeout(() => setToastMessage(""), 3000);
+        showToast("Profile updated successfully!", "success");
         fetchData();
       } else {
         const err = await res.json();
-        setToastMessage(err.error || "Failed to update profile");
-        setTimeout(() => setToastMessage(""), 3000);
+        showToast(err.error || "Failed to update profile", "error");
       }
     } catch (error) {
       console.error(error);
-      setToastMessage("Error updating profile");
-      setTimeout(() => setToastMessage(""), 3000);
+      showToast("Error updating profile", "error");
     } finally {
       setIsUpdating(false);
     }
@@ -340,7 +344,7 @@ export default function StudentDashboard() {
       body: JSON.stringify({ bookingId: ratingBooking.id, rating: ratingVal, comment: ratingComment })
     });
     if (res.ok) {
-      alert("Review submitted!");
+      showToast("Review submitted!", "success");
       setRatingBooking(null);
       fetchData();
     }
@@ -890,10 +894,16 @@ export default function StudentDashboard() {
         </main>
       </div>
 
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 z-50">
-          <CheckCircle size={18} className="text-emerald-400" />
-          <span className="text-[13px] font-bold">{toastMessage}</span>
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl border backdrop-blur-md shadow-2xl animate-in slide-in-from-top-5 duration-300 font-sans max-w-sm ${
+          toast.type === 'success' ? 'bg-emerald-50/90 border-emerald-200/50 text-emerald-800' :
+          toast.type === 'error' ? 'bg-rose-50/90 border-rose-200/50 text-rose-800' :
+          'bg-orange-50/90 border-orange-200/50 text-orange-950'
+        }`}>
+          {toast.type === 'success' && <CheckCircle size={18} className="text-emerald-500 shrink-0" />}
+          {toast.type === 'error' && <ShieldAlert size={18} className="text-rose-500 shrink-0" />}
+          {toast.type === 'info' && <Bell size={18} className="text-[#F26522] shrink-0" />}
+          <span className="text-[13px] font-bold leading-snug">{toast.message}</span>
         </div>
       )}
     </div>
