@@ -244,15 +244,21 @@ router.post('/submit-kyc', authenticate, async (req: any, res) => {
       return res.status(403).json({ error: 'Only tutors can submit KYC' });
     }
 
+    const updateData: any = {
+      phone,
+      subjects,
+      hourlyRate,
+      kycStatus: 'PENDING'
+    };
+
+    // Only update kycDocument if one was provided
+    if (kycDocument) {
+      updateData.kycDocument = kycDocument;
+    }
+
     const updatedProfile = await prisma.tutorProfile.update({
       where: { userId: req.user.id },
-      data: {
-        phone,
-        kycDocument,
-        subjects,
-        hourlyRate,
-        kycStatus: 'PENDING'
-      }
+      data: updateData
     });
 
     res.json({ message: 'KYC submitted successfully', profile: updatedProfile });

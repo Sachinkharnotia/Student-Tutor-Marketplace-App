@@ -6,10 +6,17 @@ import crypto from 'crypto';
 
 const router = Router();
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || 'mock_key',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || 'mock_secret',
-});
+// Lazy-init so dotenv.config() has run before we read process.env
+let razorpay: Razorpay;
+function getRazorpay() {
+  if (!razorpay) {
+    const keyId = process.env.RAZORPAY_KEY_ID!;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET!;
+    console.log(`[Razorpay] Initializing with key_id: ${keyId ? keyId.substring(0, 12) + '...' : 'MISSING'}`);
+    razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  }
+  return razorpay;
+}
 
 // Create a booking
 router.post('/create', authenticate, authorize(['STUDENT']), async (req: any, res) => {
@@ -38,18 +45,18 @@ router.post('/create', authenticate, authorize(['STUDENT']), async (req: any, re
       },
     });
 
-    // Create Razorpay order (mocking if keys are invalid)
+    // Create Razorpay order
     try {
-      const order = await razorpay.orders.create({
+      const order = await getRazorpay().orders.create({
         amount: amount * 100, // in paise
         currency: 'INR',
         receipt: booking.id,
       });
 
       res.json({ booking, orderId: order.id });
-    } catch (rzpError) {
-      console.warn("Razorpay order creation failed, likely using mock keys. Returning mock orderId.");
-      res.json({ booking, orderId: `mock_order_${booking.id}` });
+    } catch (rzpError: any) {
+      console.error("Razorpay order creation failed:", rzpError?.message || rzpError);
+      res.status(500).json({ error: 'Failed to create payment order. Check Razorpay keys.' });
     }
 
   } catch (error) {
@@ -63,22 +70,9 @@ router.post('/verify-payment', authenticate, async (req, res) => {
   try {
     const { bookingId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
 
-    // For MVP with mock keys, just update it without signature verification if signature is "MOCK"
-    if (razorpaySignature === 'MOCK') {
-      const booking = await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          paymentStatus: 'PAID',
-          status: 'CONFIRMED',
-          paymentId: razorpayPaymentId,
-        },
-      });
-      return res.json({ message: 'Payment verified (MOCK)', booking });
-    }
-
     const body = razorpayOrderId + '|' + razorpayPaymentId;
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'mock_secret')
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
       .update(body.toString())
       .digest('hex');
 
@@ -93,9 +87,10 @@ router.post('/verify-payment', authenticate, async (req, res) => {
       });
       res.json({ message: 'Payment verified', booking });
     } else {
-      res.status(400).json({ error: 'Invalid signature' });
+      res.status(400).json({ error: 'Invalid payment signature' });
     }
   } catch (error) {
+    console.error('Payment verification error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

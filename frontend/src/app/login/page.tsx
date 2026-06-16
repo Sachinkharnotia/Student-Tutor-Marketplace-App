@@ -372,7 +372,7 @@ export default function Login() {
 
               {authMode !== "otp" && (
                 <p className="text-[11px] text-gray-400 font-medium text-center mt-6 leading-relaxed">
-                  By continuing you agree to our <a href="#" className="text-orange-600 hover:underline">privacy policy</a> and <a href="#" className="text-orange-600 hover:underline">terms of use</a>
+                  By continuing you agree to our <Link href="/privacy-policy" className="text-orange-600 hover:underline">privacy policy</Link> and <Link href="/terms" className="text-orange-600 hover:underline">terms of use</Link>
                 </p>
               )}
 

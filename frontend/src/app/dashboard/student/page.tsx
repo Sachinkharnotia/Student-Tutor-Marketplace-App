@@ -40,6 +40,7 @@ export default function StudentDashboard() {
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
   const [isBooking, setIsBooking] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Chat State
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -237,11 +238,7 @@ export default function StudentDashboard() {
           theme: { color: "#F26522" }
         };
 
-        // If it's a real Razorpay order, attach it. Otherwise omit to let standard checkout load
-        if (createData.orderId && !createData.orderId.startsWith('mock_order_')) {
-          options.order_id = createData.orderId;
-        }
-
+        options.order_id = createData.orderId;
         const rzp = new (window as any).Razorpay(options);
         rzp.on('payment.failed', function (response: any) {
           showToast("Payment Failed: " + response.error.description, "error");
@@ -432,10 +429,34 @@ export default function StudentDashboard() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="relative text-gray-400 hover:text-gray-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
-          <Bell size={16} />
-          {bookings.length > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#F26522] rounded-full border border-white"></span>}
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative text-gray-400 hover:text-gray-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+          >
+            <Bell size={16} />
+            {bookings.length > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#F26522] rounded-full border border-white"></span>}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-50 animate-in fade-in zoom-in-95 duration-200">
+              <h3 className="text-[13px] font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <Bell size={14} className="text-[#F26522]" /> Notifications
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {bookings.length > 0 ? bookings.map((b: any) => (
+                  <div key={b.id} className="p-3 bg-gray-50 rounded-xl text-[12px]">
+                    <span className="font-bold text-gray-800">{b.tutor?.name || 'Tutor'}</span>
+                    <span className="text-gray-500 block mt-0.5">Session {b.status.toLowerCase()}</span>
+                    <span className="text-[10px] text-gray-400 mt-1 block">{new Date(b.createdAt).toLocaleDateString()}</span>
+                  </div>
+                )) : (
+                  <div className="text-[12px] text-gray-400 text-center py-4">No new notifications</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2 pl-4 border-l border-gray-100">
           <div className="flex flex-col items-end hidden md:flex">
             <span className="text-[13px] font-bold text-gray-800 leading-tight">{user.name}</span>
@@ -450,7 +471,7 @@ export default function StudentDashboard() {
   );
 
   const renderDashboardTab = () => {
-    if (!isProfileComplete) {
+    if (!isProfileComplete && !isApproved) {
       return (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-md mx-auto">
           <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-xl text-center">

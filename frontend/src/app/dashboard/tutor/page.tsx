@@ -21,6 +21,7 @@ export default function TutorDashboard() {
   const [kycDocumentUrl, setKycDocumentUrl] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [showNotifications, setShowNotifications] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [kycSubmitted, setKycSubmitted] = useState(false);
 
@@ -101,23 +102,56 @@ export default function TutorDashboard() {
     router.push("/login");
   };
 
+  const [kycFormFile, setKycFormFile] = useState<File | null>(null);
+  const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
+
   const submitKYC = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmittingKyc(true);
     const token = localStorage.getItem("token");
     try {
+      let docUrl = '';
+
+      // Upload KYC document if provided
+      if (kycFormFile) {
+        const formData = new FormData();
+        formData.append("file", kycFormFile);
+        const uploadRes = await fetch("http://localhost:4000/api/upload", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` },
+          body: formData
+        });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          docUrl = uploadData.url;
+        } else {
+          setToastMessage("Failed to upload KYC document");
+          setTimeout(() => setToastMessage(""), 3000);
+          setIsSubmittingKyc(false);
+          return;
+        }
+      }
+
+      const subjectsArray = subject.split(',').map(s => s.trim()).filter(Boolean);
       const res = await fetch("http://localhost:4000/api/auth/submit-kyc", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ subjects: [subject], hourlyRate: parseFloat(hourlyRate), phone })
+        body: JSON.stringify({ subjects: subjectsArray, hourlyRate: parseFloat(hourlyRate), phone, kycDocument: docUrl || undefined })
       });
       if (res.ok) {
-        alert("KYC Submitted Successfully! Waiting for Admin Approval.");
+        setToastMessage("KYC Submitted! Waiting for Admin Approval.");
+        setTimeout(() => setToastMessage(""), 4000);
         fetchData();
       } else {
-        alert("Failed to submit KYC");
+        setToastMessage("Failed to submit KYC");
+        setTimeout(() => setToastMessage(""), 3000);
       }
     } catch (err) {
       console.error(err);
+      setToastMessage("Error submitting KYC");
+      setTimeout(() => setToastMessage(""), 3000);
+    } finally {
+      setIsSubmittingKyc(false);
     }
   };
 
@@ -271,10 +305,34 @@ export default function TutorDashboard() {
   const renderHeader = () => (
     <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-end px-4 md:px-8 sticky top-0 z-10">
       <div className="flex items-center gap-4">
-        <button className="relative text-gray-400 hover:text-gray-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
-          <Bell size={16} />
-          {bookings.length > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#F26522] rounded-full border border-white"></span>}
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative text-gray-400 hover:text-gray-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+          >
+            <Bell size={16} />
+            {bookings.length > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#F26522] rounded-full border border-white"></span>}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-50 animate-in fade-in zoom-in-95 duration-200">
+              <h3 className="text-[13px] font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <Bell size={14} className="text-[#F26522]" /> Notifications
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {bookings.length > 0 ? bookings.map((b: any) => (
+                  <div key={b.id} className="p-3 bg-gray-50 rounded-xl text-[12px]">
+                    <span className="font-bold text-gray-800">{b.student?.name || 'Student'}</span>
+                    <span className="text-gray-500 block mt-0.5">Session {b.status.toLowerCase()}</span>
+                    <span className="text-[10px] text-gray-400 mt-1 block">{new Date(b.createdAt).toLocaleDateString()}</span>
+                  </div>
+                )) : (
+                  <div className="text-[12px] text-gray-400 text-center py-4">No new notifications</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2 pl-4 border-l border-gray-100">
           <div className="flex flex-col items-end hidden md:flex">
             <span className="text-[13px] font-bold text-gray-800 leading-tight">{user.name}</span>
@@ -295,7 +353,7 @@ export default function TutorDashboard() {
         <p className="text-[13px] text-gray-500 mt-0.5">Manage your classes and profile.</p>
       </div>
 
-      {!kycSubmitted ? (
+      {!kycSubmitted && !isVerified ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-[#F26522]">
@@ -308,8 +366,9 @@ export default function TutorDashboard() {
           </div>
           <form onSubmit={submitKYC} className="space-y-4 max-w-sm">
             <div>
-              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Primary Subject</label>
-              <input type="text" required value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Mathematics" className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] transition-all" />
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Subjects (comma separated)</label>
+              <input type="text" required value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Mathematics, Physics, Chemistry" className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] transition-all" />
+              <p className="text-[10px] text-gray-400 mt-1">Add all subjects you can teach, separated by commas</p>
             </div>
             <div>
               <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Hourly Rate (₹)</label>
@@ -317,10 +376,15 @@ export default function TutorDashboard() {
             </div>
             <div>
               <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
-              <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 234 567 8900" className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] transition-all" />
+              <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 98765 43210" className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] transition-all" />
             </div>
-            <button type="submit" className="w-full bg-gray-900 text-white py-3 rounded-xl text-[13px] font-bold hover:bg-black transition shadow-sm mt-2 flex justify-center items-center gap-2">
-              Submit for Verification <ChevronRight size={14} />
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">KYC Document (ID Proof)</label>
+              <input type="file" onChange={e => setKycFormFile(e.target.files ? e.target.files[0] : null)} className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-orange-50 file:text-[#F26522] hover:file:bg-orange-100" />
+              <p className="text-[10px] text-gray-400 mt-1">Upload Aadhaar, PAN, or any government-issued ID</p>
+            </div>
+            <button type="submit" disabled={isSubmittingKyc} className="w-full bg-gray-900 text-white py-3 rounded-xl text-[13px] font-bold hover:bg-black transition shadow-sm mt-2 flex justify-center items-center gap-2 disabled:opacity-50">
+              {isSubmittingKyc ? 'Submitting...' : 'Submit for Verification'} <ChevronRight size={14} />
             </button>
           </form>
         </div>
@@ -355,6 +419,40 @@ export default function TutorDashboard() {
             <StatCard title="Active Students" value={bookings.filter(b => b.status === 'CONFIRMED').length.toString()} icon={<MessageSquare size={16} className="text-[#F26522]"/>} bg="bg-orange-50" />
             <StatCard title="Total Sessions" value={bookings.length.toString()} icon={<Calendar size={16} className="text-blue-500"/>} bg="bg-blue-50" />
             <StatCard title="Earnings" value={`₹${bookings.filter(b => b.status === 'COMPLETED').reduce((acc, b) => acc + b.amount, 0)}`} icon={<CheckCircle size={16} className="text-emerald-500"/>} bg="bg-emerald-50" className="col-span-2 md:col-span-1" />
+          </div>
+
+          {/* My Rate & Subjects Card */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[14px] font-bold text-gray-900">My Rate & Subjects</h3>
+              <button onClick={() => setActiveTab('settings')} className="text-[11px] font-bold text-[#F26522] hover:underline flex items-center gap-1">Edit <ChevronRight size={12} /></button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Hourly Rate</p>
+                <p className="text-2xl font-black text-gray-900">₹{user.tutorProfile?.hourlyRate || 0}<span className="text-[12px] text-gray-400 font-medium">/hr</span></p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Subjects</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {(user.tutorProfile?.subjects || []).length > 0 ? (
+                    user.tutorProfile.subjects.map((s: string, i: number) => (
+                      <span key={i} className="bg-orange-50 text-[#F26522] px-2.5 py-1 rounded-lg text-[11px] font-bold border border-orange-100">{s}</span>
+                    ))
+                  ) : (
+                    <span className="text-[12px] text-gray-400">No subjects set</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {user.tutorProfile?.kycDocument && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">KYC Document</p>
+                <a href={user.tutorProfile.kycDocument} target="_blank" rel="noopener noreferrer" className="text-[12px] font-bold text-indigo-600 hover:underline flex items-center gap-1.5">
+                  <FileText size={14} /> View Uploaded Document
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}
