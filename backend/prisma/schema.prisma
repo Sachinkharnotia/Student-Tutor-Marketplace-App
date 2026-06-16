@@ -50,6 +50,7 @@ model StudentProfile {
   id      String @id @default(uuid())
   userId  String @unique
   phone   String?
+  status  KycStatus @default(PENDING)
   user    User   @relation(fields: [userId], references: [id])
 }
 

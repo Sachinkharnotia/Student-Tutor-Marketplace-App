@@ -14,6 +14,9 @@ export default function StudentDashboard() {
   const [user, setUser] = useState<any>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [tutors, setTutors] = useState<any[]>([]);
@@ -38,12 +41,49 @@ export default function StudentDashboard() {
   const [ratingComment, setRatingComment] = useState("");
 
   useEffect(() => {
+    if (user && user.studentProfile) {
+      setPhone(user.studentProfile.phone || "");
+    }
+  }, [user]);
+
+  const handleCompleteProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone) return alert("Please enter your phone number.");
+    setIsUpdating(true);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:4000/api/profile/student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ phone })
+      });
+      if (res.ok) {
+        setToastMessage("Profile completed! Sent for admin approval.");
+        setTimeout(() => setToastMessage(""), 3000);
+        fetchData();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to update profile");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error updating profile");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) {
       router.push("/login");
       return;
     } 
     const parsed = JSON.parse(userData);
+    if (parsed.role !== 'STUDENT') {
+      router.push("/login");
+      return;
+    }
     setUser(parsed);
     setEditName(parsed.name);
     setEditEmail(parsed.email);
@@ -70,21 +110,57 @@ export default function StudentDashboard() {
   const fetchData = async () => {
     const token = localStorage.getItem("token");
     try {
-      const [resTutors, resBookings] = await Promise.all([
+      const [resTutors, resBookings, resMe] = await Promise.all([
         fetch("http://localhost:4000/api/marketplace/tutors", { headers: { "Authorization": `Bearer ${token}` } }),
-        fetch("http://localhost:4000/api/booking/my-bookings", { headers: { "Authorization": `Bearer ${token}` } })
+        fetch("http://localhost:4000/api/booking/my-bookings", { headers: { "Authorization": `Bearer ${token}` } }),
+        fetch("http://localhost:4000/api/auth/me", { headers: { "Authorization": `Bearer ${token}` } })
       ]);
       
       if (resTutors.ok) setTutors(await resTutors.json());
       if (resBookings.ok) setBookings(await resBookings.json());
+      if (resMe.ok) {
+        const meData = await resMe.json();
+        setUser(meData.user);
+        localStorage.setItem("user", JSON.stringify(meData.user));
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
+  const handleVerifyOtpDashboard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp) return alert("Please enter the OTP.");
+    setIsVerifyingOtp(true);
+    try {
+      const res = await fetch("http://localhost:4000/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, otp })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setToastMessage("OTP verified successfully!");
+        setTimeout(() => setToastMessage(""), 3000);
+        const updatedUser = { ...user, isVerified: true };
+        setUser(updatedUser);
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        localStorage.setItem("token", data.token);
+        fetchData();
+      } else {
+        alert(data.error || "Verification failed");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error verifying OTP");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
   useEffect(() => {
-    if (user) fetchData();
-  }, [user]);
+    if (user?.id) fetchData();
+  }, [user?.id]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -219,11 +295,15 @@ export default function StudentDashboard() {
         body: JSON.stringify({ name: editName, email: editEmail })
       });
       if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        await fetch("http://localhost:4000/api/profile/student", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ phone })
+        });
+        
         setToastMessage("Profile updated successfully!");
         setTimeout(() => setToastMessage(""), 3000);
+        fetchData();
       } else {
         const err = await res.json();
         setToastMessage(err.error || "Failed to update profile");
@@ -253,7 +333,52 @@ export default function StudentDashboard() {
 
   if (!user) return <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa] text-gray-400 text-sm">Loading workspace...</div>;
 
-  const isVerified = user.isVerified === true;
+  const isOtpVerified = user.isVerified === true;
+  const isProfileComplete = !!user.studentProfile?.phone;
+  const isApproved = user.studentProfile?.status === 'APPROVED';
+  const isVerified = isApproved;
+
+  if (!isOtpVerified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 relative font-sans">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-gray-100 shadow-xl p-8 text-center animate-in fade-in slide-in-from-bottom-5">
+          <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 text-[#F26522] border border-orange-100">
+            <Lock size={28} />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 tracking-tight mb-2">Step 1: Verify Email</h2>
+          <p className="text-[13px] text-gray-500 mb-6 leading-relaxed">
+            Please enter the 6-digit OTP sent to <b>{user.email}</b> to verify your email.
+          </p>
+          
+          <form onSubmit={handleVerifyOtpDashboard} className="space-y-4 text-left">
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">One-Time Password</label>
+              <input 
+                type="text" 
+                value={otp} 
+                onChange={(e) => setOtp(e.target.value)} 
+                required
+                maxLength={6}
+                placeholder="123456"
+                className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-center tracking-widest text-lg font-bold text-gray-800 transition-all" 
+              />
+            </div>
+            <button 
+              type="submit" 
+              disabled={isVerifyingOtp || otp.length < 6}
+              className="w-full bg-[#F26522] text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-orange-500/10"
+            >
+              {isVerifyingOtp ? "Verifying..." : "Verify OTP"} <ChevronRight size={16} />
+            </button>
+          </form>
+          
+          <button onClick={handleLogout} className="mt-6 text-xs font-semibold text-red-500 hover:underline">
+            Log out
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const renderSidebar = () => (
     <div className="w-20 md:w-64 bg-white border-r border-gray-100 flex flex-col h-screen fixed left-0 top-0 transition-all z-20">
@@ -305,48 +430,119 @@ export default function StudentDashboard() {
     </header>
   );
 
-  const renderDashboardTab = () => (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Overview</h1>
-          <p className="text-[13px] text-gray-500 mt-0.5">Track your learning progress today.</p>
-        </div>
-        {!isVerified ? (
-          <div className="flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full border border-amber-200/60 text-[11px] font-bold uppercase tracking-wide">
-            <ShieldAlert size={12} /> Pending Verification
+  const renderDashboardTab = () => {
+    if (!isProfileComplete) {
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-md mx-auto">
+          <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-xl text-center">
+            <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 text-[#F26522] border border-orange-100">
+              <Settings size={28} />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight mb-2">Step 2: Profile Completion</h2>
+            <p className="text-[13px] text-gray-500 mb-6 leading-relaxed">Please complete your profile details to submit your account for admin approval.</p>
+            
+            <form onSubmit={handleCompleteProfile} className="space-y-4 text-left">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
+                <input 
+                  type="tel" 
+                  value={phone} 
+                  onChange={(e) => setPhone(e.target.value)} 
+                  required
+                  placeholder="+1 (555) 000-0000"
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] font-medium text-gray-800 transition-all" 
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={isUpdating}
+                className="w-full bg-[#F26522] text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-orange-500/10"
+              >
+                {isUpdating ? "Saving..." : "Submit for Approval"} <ChevronRight size={16} />
+              </button>
+            </form>
           </div>
-        ) : (
-          <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-200/60 text-[11px] font-bold uppercase tracking-wide">
-            <UserCheck size={12} /> Verified Account
+        </div>
+      );
+    }
+
+    if (user.studentProfile?.status === 'REJECTED') {
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-md mx-auto">
+          <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-xl text-center">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 border border-red-100">
+              <X size={28} />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight mb-2">Profile Rejected</h2>
+            <p className="text-[13px] text-gray-500 mb-6 leading-relaxed">Admin has rejected your profile. You can update your phone number below to resubmit for review.</p>
+            
+            <form onSubmit={handleCompleteProfile} className="space-y-4 text-left">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
+                <input 
+                  type="tel" 
+                  value={phone} 
+                  onChange={(e) => setPhone(e.target.value)} 
+                  required
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] font-medium text-gray-800 transition-all" 
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={isUpdating}
+                className="w-full bg-[#F26522] text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-orange-500/10"
+              >
+                {isUpdating ? "Saving..." : "Resubmit for Approval"} <ChevronRight size={16} />
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Overview</h1>
+            <p className="text-[13px] text-gray-500 mt-0.5">Track your learning progress today.</p>
+          </div>
+          {!isApproved ? (
+            <div className="flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full border border-amber-200/60 text-[11px] font-bold uppercase tracking-wide">
+              <ShieldAlert size={12} /> Pending Approval
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-200/60 text-[11px] font-bold uppercase tracking-wide">
+              <UserCheck size={12} /> Approved Student
+            </div>
+          )}
+        </div>
+
+        {!isApproved && (
+          <div className="bg-gradient-to-br from-amber-50 to-white rounded-2xl p-5 md:p-6 border border-amber-100 shadow-sm mb-6 flex items-start gap-4">
+            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
+              <Lock size={16} className="text-amber-600" />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-bold text-gray-900">Account Restricted</h2>
+              <p className="text-[13px] text-gray-600 mt-1 max-w-xl leading-relaxed">
+                Admin approval is required before you can book tutors or chat. We are reviewing your profile.
+              </p>
+              <button onClick={fetchData} className="mt-3 text-amber-700 font-bold text-[12px] flex items-center gap-1 hover:text-amber-800">
+                Refresh Status <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
         )}
-      </div>
 
-      {!isVerified && (
-        <div className="bg-gradient-to-br from-amber-50 to-white rounded-2xl p-5 md:p-6 border border-amber-100 shadow-sm mb-6 flex items-start gap-4">
-          <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
-            <Lock size={16} className="text-amber-600" />
-          </div>
-          <div>
-            <h2 className="text-[14px] font-bold text-gray-900">Account Restricted</h2>
-            <p className="text-[13px] text-gray-600 mt-1 max-w-xl leading-relaxed">
-              Admin verification is required before you can book tutors or chat. We are reviewing your profile.
-            </p>
-            <button onClick={fetchData} className="mt-3 text-amber-700 font-bold text-[12px] flex items-center gap-1 hover:text-amber-800">
-              Refresh Status <ChevronRight size={14} />
-            </button>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+          <StatCard title="Upcoming" value={bookings.filter(b => b.status === 'CONFIRMED').length.toString()} icon={<Calendar size={16} className="text-[#F26522]"/>} bg="bg-orange-50" />
+          <StatCard title="Hours" value={bookings.filter(b => b.status === 'COMPLETED').length.toString()} icon={<Clock size={16} className="text-blue-500"/>} bg="bg-blue-50" />
+          <StatCard title="Completed" value={bookings.filter(b => b.status === 'COMPLETED').length.toString()} icon={<Star size={16} className="text-emerald-500"/>} bg="bg-emerald-50" className="col-span-2 md:col-span-1" />
         </div>
-      )}
-
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-        <StatCard title="Upcoming" value={bookings.filter(b => b.status === 'CONFIRMED').length.toString()} icon={<Calendar size={16} className="text-[#F26522]"/>} bg="bg-orange-50" />
-        <StatCard title="Hours" value={bookings.filter(b => b.status === 'COMPLETED').length.toString()} icon={<Clock size={16} className="text-blue-500"/>} bg="bg-blue-50" />
-        <StatCard title="Completed" value={bookings.filter(b => b.status === 'COMPLETED').length.toString()} icon={<Star size={16} className="text-emerald-500"/>} bg="bg-emerald-50" className="col-span-2 md:col-span-1" />
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderTutorsTab = () => (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 relative">
@@ -651,15 +847,21 @@ export default function StudentDashboard() {
                     <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
                     <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all" />
                   </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
+                    <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all" />
+                  </div>
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                     <div>
                       <p className="text-[13px] font-bold text-gray-900">Account Status</p>
-                      <p className="text-[11px] text-gray-500 font-medium">Platform verification</p>
+                      <p className="text-[11px] text-gray-500 font-medium">Platform approval</p>
                     </div>
-                    {isVerified ? (
-                      <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-emerald-200/60">Verified</span>
+                    {isApproved ? (
+                      <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-emerald-200/60">Approved</span>
+                    ) : user.studentProfile?.status === 'REJECTED' ? (
+                      <span className="bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-rose-200/60">Rejected</span>
                     ) : (
-                      <span className="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-amber-200/60">Pending</span>
+                      <span className="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-amber-200/60">Pending Approval</span>
                     )}
                   </div>
                 </div>

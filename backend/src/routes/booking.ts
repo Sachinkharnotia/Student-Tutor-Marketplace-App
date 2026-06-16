@@ -17,6 +17,15 @@ router.post('/create', authenticate, authorize(['STUDENT']), async (req: any, re
     const studentId = req.user.id;
     const { tutorId, startTime, endTime, amount } = req.body;
 
+    // Check if student is admin-approved
+    const studentProfile = await prisma.studentProfile.findUnique({
+      where: { userId: studentId }
+    });
+
+    if (!studentProfile || studentProfile.status !== 'APPROVED') {
+      return res.status(403).json({ error: 'Only approved students can book tutors and make payments.' });
+    }
+
     const booking = await prisma.booking.create({
       data: {
         studentId,
@@ -95,11 +104,13 @@ router.post('/verify-payment', authenticate, async (req, res) => {
 router.get('/my-bookings', authenticate, authorize(['STUDENT']), async (req: any, res) => {
   try {
     const studentId = req.user.id;
+    console.log(`API [GET /my-bookings] called by Student ID: ${studentId}`);
     const bookings = await prisma.booking.findMany({
       where: { studentId },
       include: { tutor: { select: { name: true, email: true } } },
       orderBy: { startTime: 'asc' }
     });
+    console.log(`API [GET /my-bookings] found ${bookings.length} bookings for Student ID: ${studentId}`);
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -109,11 +120,13 @@ router.get('/my-bookings', authenticate, authorize(['STUDENT']), async (req: any
 // Get tutor bookings
 router.get('/tutor-bookings', authenticate, authorize(['TUTOR']), async (req: any, res) => {
   try {
+    console.log(`API [GET /tutor-bookings] called by Tutor ID: ${req.user.id}`);
     const bookings = await prisma.booking.findMany({
       where: { tutorId: req.user.id },
       include: { student: { select: { name: true, email: true } } },
       orderBy: { startTime: 'asc' }
     });
+    console.log(`API [GET /tutor-bookings] found ${bookings.length} bookings for Tutor ID: ${req.user.id}`);
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });

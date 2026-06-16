@@ -56,8 +56,8 @@ export default function App() {
       <section className="relative h-[100dvh] w-full flex flex-col bg-[#EFEFEF] overflow-hidden">
         
         {/* Shaders Background */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          <Shader>
+        <div className="absolute inset-0 z-0 pointer-events-auto cursor-pointer">
+          <Shader className="w-full h-full" style={{ width: "100%", height: "100%" }}>
             <FilmGrain strength={0.05}>
               <FlutedGlass aberration={0.61} angle={31} frequency={8} highlight={0.12} highlightSoftness={0} lightAngle={-90} refraction={4} shape="rounded" softness={1} speed={0.15}>
                 <ChromaFlow baseColor="#ffffff" downColor="#ff5f03" leftColor="#ff5f03" rightColor="#ff5f03" upColor="#ff5f03" momentum={13} radius={3.5}>
@@ -69,8 +69,8 @@ export default function App() {
         </div>
 
         {/* Navigation */}
-        <nav className="relative z-30 max-w-[1440px] w-full mx-auto p-2 sm:p-3 pt-4 sm:pt-6">
-          <div className="bg-white rounded-full p-[5px] flex items-center justify-between shadow-sm">
+        <nav className="relative z-30 max-w-[1440px] w-full mx-auto p-2 sm:p-3 pt-4 sm:pt-6 pointer-events-none">
+          <div className="bg-white rounded-full p-[5px] flex items-center justify-between shadow-sm pointer-events-auto">
             {/* Nav Left */}
             <div className="flex items-center gap-6">
               <Link href="/" className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-900 rounded-full flex items-center justify-center shrink-0">
@@ -105,16 +105,24 @@ export default function App() {
         </nav>
 
         {/* Hero Content (Pushed to bottom) */}
-        <div className="relative z-20 flex-1 flex flex-col justify-end max-w-[1440px] w-full mx-auto px-5 sm:px-8 lg:px-12 pb-14 sm:pb-16 lg:pb-20">
-          <span className="text-[13px] sm:text-[14px] text-gray-900 tracking-wide mb-5 sm:mb-8 uppercase font-medium">Student-Tutor Marketplace</span>
+        <div className="relative z-20 flex-1 flex flex-col justify-end max-w-[1440px] w-full mx-auto px-5 sm:px-8 lg:px-12 pb-14 sm:pb-16 lg:pb-20 pointer-events-none">
+          <span 
+            className="text-[13px] sm:text-[14px] text-[#F26522] tracking-wide mb-5 sm:mb-8 uppercase font-extrabold select-none pointer-events-auto"
+            style={{ textShadow: '0 0 10px rgba(242, 101, 34, 0.25)' }}
+          >
+            Student-Tutor Marketplace
+          </span>
           
-          <h1 className="text-[clamp(1.75rem,7vw,4.2rem)] sm:text-[clamp(2.5rem,5vw,4.2rem)] font-medium leading-[1.08] tracking-[-0.03em] text-gray-900 max-w-[1000px]">
-            Master any subject<br className="hidden sm:block" /><span className="sm:hidden"> </span>
-            with world-class tutors<br className="hidden sm:block" /><span className="sm:hidden"> </span>
+          <h1 
+            className="text-[clamp(1.75rem,7vw,4.2rem)] sm:text-[clamp(2.5rem,5vw,4.2rem)] font-black leading-[1.08] tracking-[-0.03em] text-gray-900 max-w-[1000px] select-none pointer-events-auto"
+            style={{ textShadow: '0 0 20px rgba(242, 101, 34, 0.2), 0 0 40px rgba(242, 101, 34, 0.1)' }}
+          >
+            Master any subject<br className="hidden sm:block" />
+            with <span className="text-[#F26522]" style={{ textShadow: '0 0 15px rgba(242, 101, 34, 0.6), 0 0 30px rgba(242, 101, 34, 0.3)' }}>world-class tutors</span><br className="hidden sm:block" />
             ready to elevate your learning.
           </h1>
 
-          <div className="mt-8 sm:mt-12 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
+          <div className="mt-8 sm:mt-12 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 pointer-events-auto">
             <TextRollBtn text="Find a Tutor" href="/register" orange={true} />
             
             <div className="bg-white rounded-[4px] px-2 py-1.5 flex items-center gap-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition-shadow duration-300">

@@ -41,12 +41,17 @@ export default function TutorDashboard() {
       return;
     }
     const parsed = JSON.parse(userData);
+    if (parsed.role !== 'TUTOR') {
+      router.push("/login");
+      return;
+    }
     setUser(parsed);
     setEditName(parsed.name);
     setEditEmail(parsed.email);
     if (parsed.tutorProfile) {
       setEditPhone(parsed.tutorProfile.phone || "");
       setKycDocumentUrl(parsed.tutorProfile.kycDocument || "");
+      setKycSubmitted(!!parsed.tutorProfile.phone);
     }
 
     const newSocket = io("http://localhost:4000");
@@ -64,9 +69,9 @@ export default function TutorDashboard() {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
-        setKycSubmitted(data.user.tutorProfile !== null);
+        setKycSubmitted(!!data.user.tutorProfile?.phone);
       }
-      const bookingsRes = await fetch("http://localhost:4000/api/booking/my-bookings", { headers: { "Authorization": `Bearer ${token}` } });
+      const bookingsRes = await fetch("http://localhost:4000/api/booking/tutor-bookings", { headers: { "Authorization": `Bearer ${token}` } });
       if (bookingsRes.ok) {
         const bookingsData = await bookingsRes.json();
         setBookings(bookingsData);
@@ -77,8 +82,8 @@ export default function TutorDashboard() {
   };
 
   useEffect(() => {
-    if (user) fetchData();
-  }, [user]);
+    if (user?.id) fetchData();
+  }, [user?.id]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");

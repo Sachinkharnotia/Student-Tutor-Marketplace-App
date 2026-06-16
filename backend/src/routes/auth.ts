@@ -7,15 +7,46 @@ import { prisma } from '../index';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
-// Ethereal Email Transporter for OTP Testing
-const transporter = nodemailer.createTransport({
-  host: 'smtp.ethereal.email',
-  port: 587,
-  auth: {
-      user: 'tre.reichel@ethereal.email',
-      pass: '7Rj7b2vD12Kz7n8VdD'
+// Ethereal Email Transporter with dynamic fallback for OTP Testing
+let cachedTransporter: any = null;
+
+async function getTransporter() {
+  if (cachedTransporter) return cachedTransporter;
+
+  try {
+    const host = process.env.SMTP_HOST || 'smtp.ethereal.email';
+    const port = parseInt(process.env.SMTP_PORT || '587');
+    const user = process.env.SMTP_USER || 'tre.reichel@ethereal.email';
+    const pass = process.env.SMTP_PASS || '7Rj7b2vD12Kz7n8VdD';
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465, // true for 465, false for other ports
+      auth: {
+          user,
+          pass
+      }
+    });
+    await transporter.verify();
+    cachedTransporter = transporter;
+    return transporter;
+  } catch (err) {
+    console.warn("SMTP configuration failed, creating dynamic test account...", err);
+    const testAccount = await nodemailer.createTestAccount();
+    const transporter = nodemailer.createTransport({
+      host: testAccount.smtp.host,
+      port: testAccount.smtp.port,
+      secure: testAccount.smtp.secure,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass
+      }
+    });
+    cachedTransporter = transporter;
+    return transporter;
   }
-});
+}
 
 router.post('/register', async (req, res) => {
   try {
@@ -55,11 +86,36 @@ router.post('/register', async (req, res) => {
     }
 
     // Send OTP Email
-    const info = await transporter.sendMail({
-      from: '"Marketplace App" <no-reply@marketplace.com>',
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #f0f0f0; border-radius: 12px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h1 style="color: #F26522; margin: 0; font-size: 28px; font-weight: 800;">Educator Hub</h1>
+          <p style="color: #666666; font-size: 14px; margin-top: 5px;">Your Verification Code</p>
+        </div>
+        <hr style="border: none; border-top: 1px solid #f0f0f0; margin-bottom: 30px;" />
+        <div style="font-size: 16px; color: #333333; line-height: 1.6; margin-bottom: 30px;">
+          <p>Hello,</p>
+          <p>Thank you for registering at <b>Educator Hub</b>. To complete your registration and verify your email address, please use the following one-time password (OTP):</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 5px; color: #F26522; background-color: #FFF5F0; padding: 12px 30px; border-radius: 8px; border: 1px solid #FFD8C2; display: inline-block;">${otp}</span>
+          </div>
+          <p style="font-size: 13px; color: #666666;">This code is valid for <b>10 minutes</b>. If you did not request this code, you can safely ignore this email.</p>
+        </div>
+        <hr style="border: none; border-top: 1px solid #f0f0f0; margin-top: 30px; margin-bottom: 20px;" />
+        <div style="text-align: center; font-size: 12px; color: #999999;">
+          <p>&copy; 2026 Educator Hub. All rights reserved.</p>
+          <p>This is an automated security message. Please do not reply to this email.</p>
+        </div>
+      </div>
+    `;
+
+    const mailTransporter = await getTransporter();
+    const info = await mailTransporter.sendMail({
+      from: `"Educator Hub" <${process.env.SMTP_USER || 'no-reply@marketplace.com'}>`,
       to: email,
-      subject: "Verify Your Account - OTP",
+      subject: "Verify Your Account - Educator Hub OTP",
       text: `Your OTP for registration is ${otp}. It expires in 10 minutes.`,
+      html: htmlContent
     });
     console.log("OTP Email sent. Preview URL: %s", nodemailer.getTestMessageUrl(info));
 
@@ -134,6 +190,7 @@ router.get('/me', authenticate, async (req: any, res) => {
       include: { tutorProfile: true, studentProfile: true }
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
+    console.log(`API [GET /me] called by User: ${user.name} (${user.email}) - ID: ${user.id}`);
     res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, isVerified: user.isVerified, tutorProfile: user.tutorProfile, studentProfile: user.studentProfile } });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });

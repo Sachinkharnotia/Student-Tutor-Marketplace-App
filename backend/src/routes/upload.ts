@@ -15,12 +15,33 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const isImage = (filename: string, mimetype: string) => {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+  const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+  return imageExtensions.includes(ext) || mimetype.startsWith('image/');
+};
+
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'student-tutor-marketplace-assets',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
-  } as any,
+  params: async (req: any, file: any) => {
+    const filename = file.originalname;
+    const mimetype = file.mimetype;
+    
+    const image = isImage(filename, mimetype);
+    const lastDotIndex = filename.lastIndexOf('.');
+    const ext = lastDotIndex !== -1 ? filename.substring(lastDotIndex) : '';
+    const baseName = lastDotIndex !== -1 ? filename.substring(0, lastDotIndex) : filename;
+    
+    const cleanBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, '_');
+    
+    return {
+      folder: 'student-tutor-marketplace-assets',
+      resource_type: image ? 'auto' : 'raw',
+      public_id: image 
+        ? `${cleanBaseName}-${Date.now()}` 
+        : `${cleanBaseName}-${Date.now()}${ext}`,
+    };
+  },
 });
 
 const upload = multer({ storage: storage });

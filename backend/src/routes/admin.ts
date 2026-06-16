@@ -20,9 +20,9 @@ router.get('/pending-tutors', authenticate, authorize(['ADMIN']), async (req, re
 // Get pending students
 router.get('/pending-students', authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
-    const pendingStudents = await prisma.user.findMany({
-      where: { role: 'STUDENT', isVerified: false },
-      select: { id: true, name: true, email: true, createdAt: true },
+    const pendingStudents = await prisma.studentProfile.findMany({
+      where: { status: 'PENDING' },
+      include: { user: { select: { name: true, email: true } } },
     });
     res.json(pendingStudents);
   } catch (error) {
@@ -56,15 +56,16 @@ router.post('/verify-tutor', authenticate, authorize(['ADMIN']), async (req, res
 // Verify student
 router.post('/verify-student', authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
-    const { userId } = req.body; 
+    const { studentProfileId, status } = req.body; // status: APPROVED or REJECTED
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { isVerified: true },
+    const updatedProfile = await prisma.studentProfile.update({
+      where: { id: studentProfileId },
+      data: { status },
     });
 
-    res.json({ message: 'Student verified', user: updatedUser });
+    res.json({ message: `Student ${status}`, profile: updatedProfile });
   } catch (error) {
+    console.error('Verify Student Error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -73,7 +74,17 @@ router.post('/verify-student', authenticate, authorize(['ADMIN']), async (req, r
 router.get('/users', authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, isVerified: true, isSuspended: true, createdAt: true },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        role: true, 
+        isVerified: true, 
+        isSuspended: true, 
+        createdAt: true,
+        studentProfile: { select: { status: true } },
+        tutorProfile: { select: { kycStatus: true } }
+      },
       orderBy: { createdAt: 'desc' }
     });
     res.json(users);

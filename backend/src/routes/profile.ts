@@ -12,7 +12,10 @@ router.post('/student', authenticate, authorize(['STUDENT']), async (req: any, r
 
     const profile = await prisma.studentProfile.update({
       where: { userId },
-      data: { phone },
+      data: { 
+        phone,
+        status: 'PENDING'
+      },
     });
 
     res.json({ message: 'Student profile updated. Waiting for admin approval.', profile });

@@ -57,13 +57,21 @@ io.on('connection', (socket) => {
 
   // Send message to a specific room
   socket.on('send_message', (data) => {
-    // data should contain { bookingId, message, senderId, senderName }
-    socket.to(data.bookingId).emit('receive_message', data);
+    const targetRoom = data.room || data.bookingId;
+    if (targetRoom) {
+      socket.to(targetRoom).emit('receive_message', data);
+    }
   });
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });
+});
+
+// Error handling middleware
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Express Unhandled Error:", err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 4000;

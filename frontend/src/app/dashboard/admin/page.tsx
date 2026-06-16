@@ -73,7 +73,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleVerifyStudent = (userId: string) => apiPost("http://localhost:4000/api/admin/verify-student", { userId });
+  const handleVerifyStudent = (studentProfileId: string, status: string) => apiPost("http://localhost:4000/api/admin/verify-student", { studentProfileId, status });
   const handleVerifyTutor = (tutorProfileId: string, status: string) => apiPost("http://localhost:4000/api/admin/verify-tutor", { tutorProfileId, status });
   const handleSuspend = (userId: string, isSuspended: boolean) => apiPost("http://localhost:4000/api/admin/suspend", { userId, isSuspended });
   const handleRefund = (bookingId: string) => apiPost("http://localhost:4000/api/admin/refund", { bookingId });
@@ -182,14 +182,22 @@ export default function AdminDashboard() {
             {pendingStudents.length === 0 ? <p className="text-[13px] text-gray-400 text-center py-8">No students pending verification.</p> : (
               <div className="space-y-4">
                 {pendingStudents.map(student => (
-                  <div key={student.id} className="p-4 border border-gray-100 rounded-xl bg-white shadow-sm flex items-center justify-between">
-                    <div>
-                      <p className="text-[14px] font-bold text-gray-900">{student.name}</p>
-                      <p className="text-[12px] text-gray-500">{student.email}</p>
+                  <div key={student.id} className="p-4 border border-gray-100 rounded-xl bg-white shadow-sm flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-[14px] font-bold text-gray-900">{student.user.name}</p>
+                        <p className="text-[12px] text-gray-500">{student.user.email}</p>
+                        {student.phone && <p className="text-[12px] text-gray-500 font-medium">Phone: {student.phone}</p>}
+                      </div>
                     </div>
-                    <button onClick={() => handleVerifyStudent(student.id)} className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-[12px] font-bold transition flex items-center gap-1">
-                      <Check size={14} /> Verify
-                    </button>
+                    <div className="flex gap-2 mt-2 pt-3 border-t border-gray-100">
+                      <button onClick={() => handleVerifyStudent(student.id, 'APPROVED')} className="flex-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 py-2 rounded-lg text-[12px] font-bold transition flex items-center justify-center gap-1">
+                        <Check size={14} /> Approve
+                      </button>
+                      <button onClick={() => handleVerifyStudent(student.id, 'REJECTED')} className="flex-1 bg-rose-50 text-rose-600 hover:bg-rose-100 py-2 rounded-lg text-[12px] font-bold transition flex items-center justify-center gap-1">
+                        <XCircle size={14} /> Reject
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -225,8 +233,20 @@ export default function AdminDashboard() {
                   <p className="text-[12px] text-gray-500">{u.email}</p>
                 </td>
                 <td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-bold text-[11px]">{u.role}</span></td>
-                <td className="px-6 py-4">
-                  {u.isVerified ? <span className="text-emerald-500 font-bold flex items-center gap-1"><CheckCircle size={14}/> Verified</span> : <span className="text-gray-400 font-bold flex items-center gap-1"><Activity size={14}/> Pending</span>}
+                <td className="px-6 py-4 font-medium">
+                  {u.role === 'STUDENT' ? (
+                    <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase ${
+                      u.studentProfile?.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                      u.studentProfile?.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-amber-50 text-amber-700 border border-amber-100'
+                    }`}>{u.studentProfile?.status || 'PENDING'}</span>
+                  ) : u.role === 'TUTOR' ? (
+                    <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase ${
+                      u.tutorProfile?.kycStatus === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                      u.tutorProfile?.kycStatus === 'REJECTED' ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-amber-50 text-amber-700 border border-amber-100'
+                    }`}>{u.tutorProfile?.kycStatus || 'PENDING'}</span>
+                  ) : (
+                    <span className="text-gray-400 font-bold">N/A</span>
+                  )}
                 </td>
                 <td className="px-6 py-4">
                   {u.isSuspended ? <span className="text-rose-500 font-bold">Suspended</span> : <span className="text-emerald-500 font-bold">Active</span>}
