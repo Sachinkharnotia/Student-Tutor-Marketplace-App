@@ -608,7 +608,7 @@ export default function StudentDashboard() {
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                <div className="font-bold text-[15px] text-gray-900">${tutor.hourlyRate}<span className="text-gray-400 font-medium text-[11px]">/hr</span></div>
+                <div className="font-bold text-[15px] text-gray-900">₹{tutor.hourlyRate}<span className="text-gray-400 font-medium text-[11px]">/hr</span></div>
                 <button onClick={() => setSelectedTutor(tutor)} className="bg-[#F26522] text-white px-4 py-1.5 rounded-lg text-[12px] font-bold hover:bg-[#e05a1a] transition shadow-sm">
                   Book
                 </button>
@@ -628,7 +628,7 @@ export default function StudentDashboard() {
               <Calendar size={20} />
             </div>
             <h2 className="text-[18px] font-bold text-gray-900 tracking-tight leading-none mb-1">Book Session</h2>
-            <p className="text-gray-500 text-[13px] mb-6 font-medium">with {selectedTutor.user.name} • ${selectedTutor.hourlyRate}/hr</p>
+            <p className="text-gray-500 text-[13px] mb-6 font-medium">with {selectedTutor.user.name} • ₹{selectedTutor.hourlyRate}/hr</p>
             
             <div className="space-y-4 mb-6">
               <div>

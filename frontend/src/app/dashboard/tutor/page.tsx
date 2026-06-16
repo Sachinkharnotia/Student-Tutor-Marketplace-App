@@ -15,6 +15,8 @@ export default function TutorDashboard() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editHourlyRate, setEditHourlyRate] = useState("");
+  const [editSubjects, setEditSubjects] = useState("");
   const [kycFile, setKycFile] = useState<File | null>(null);
   const [kycDocumentUrl, setKycDocumentUrl] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
@@ -52,6 +54,8 @@ export default function TutorDashboard() {
       setEditPhone(parsed.tutorProfile.phone || "");
       setKycDocumentUrl(parsed.tutorProfile.kycDocument || "");
       setKycSubmitted(!!parsed.tutorProfile.phone);
+      setEditHourlyRate(parsed.tutorProfile.hourlyRate?.toString() || "");
+      setEditSubjects(parsed.tutorProfile.subjects?.join(", ") || "");
     }
 
     const newSocket = io("http://localhost:4000");
@@ -70,6 +74,12 @@ export default function TutorDashboard() {
         const data = await res.json();
         setUser(data.user);
         setKycSubmitted(!!data.user.tutorProfile?.phone);
+        if (data.user.tutorProfile) {
+          setEditPhone(data.user.tutorProfile.phone || "");
+          setKycDocumentUrl(data.user.tutorProfile.kycDocument || "");
+          setEditHourlyRate(data.user.tutorProfile.hourlyRate?.toString() || "");
+          setEditSubjects(data.user.tutorProfile.subjects?.join(", ") || "");
+        }
       }
       const bookingsRes = await fetch("http://localhost:4000/api/booking/tutor-bookings", { headers: { "Authorization": `Bearer ${token}` } });
       if (bookingsRes.ok) {
@@ -197,7 +207,12 @@ export default function TutorDashboard() {
       const res2 = await fetch("http://localhost:4000/api/profile/tutor", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ phone: editPhone, kycDocument: finalDocUrl, subjects: ["Math", "Physics"], hourlyRate: 35 })
+        body: JSON.stringify({ 
+          phone: editPhone, 
+          kycDocument: finalDocUrl, 
+          subjects: editSubjects.split(",").map(s => s.trim()).filter(Boolean), 
+          hourlyRate: parseFloat(editHourlyRate) || 0 
+        })
       });
 
       if (res1.ok && res2.ok) {
@@ -297,8 +312,8 @@ export default function TutorDashboard() {
               <input type="text" required value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Mathematics" className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] transition-all" />
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Hourly Rate ($)</label>
-              <input type="number" required value={hourlyRate} onChange={e => setHourlyRate(e.target.value)} placeholder="e.g. 50" className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] transition-all" />
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Hourly Rate (₹)</label>
+              <input type="number" required value={hourlyRate} onChange={e => setHourlyRate(e.target.value)} placeholder="e.g. 500" className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] transition-all" />
             </div>
             <div>
               <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
@@ -339,7 +354,7 @@ export default function TutorDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <StatCard title="Active Students" value={bookings.filter(b => b.status === 'CONFIRMED').length.toString()} icon={<MessageSquare size={16} className="text-[#F26522]"/>} bg="bg-orange-50" />
             <StatCard title="Total Sessions" value={bookings.length.toString()} icon={<Calendar size={16} className="text-blue-500"/>} bg="bg-blue-50" />
-            <StatCard title="Earnings" value={`$${bookings.filter(b => b.status === 'COMPLETED').reduce((acc, b) => acc + b.amount, 0)}`} icon={<CheckCircle size={16} className="text-emerald-500"/>} bg="bg-emerald-50" className="col-span-2 md:col-span-1" />
+            <StatCard title="Earnings" value={`₹${bookings.filter(b => b.status === 'COMPLETED').reduce((acc, b) => acc + b.amount, 0)}`} icon={<CheckCircle size={16} className="text-emerald-500"/>} bg="bg-emerald-50" className="col-span-2 md:col-span-1" />
           </div>
         </div>
       )}
@@ -466,6 +481,14 @@ export default function TutorDashboard() {
                       <input type="file" onChange={(e) => setKycFile(e.target.files ? e.target.files[0] : null)} className="flex-1 px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
                       {kycDocumentUrl && <a href={kycDocumentUrl} target="_blank" className="text-indigo-600 text-[12px] font-bold hover:underline whitespace-nowrap">View Current</a>}
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Hourly Rate (₹)</label>
+                    <input type="number" value={editHourlyRate} onChange={(e) => setEditHourlyRate(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Subjects (comma separated)</label>
+                    <input type="text" value={editSubjects} onChange={(e) => setEditSubjects(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all" placeholder="e.g. Mathematics, Physics, Chemistry" />
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Full Name</label>
