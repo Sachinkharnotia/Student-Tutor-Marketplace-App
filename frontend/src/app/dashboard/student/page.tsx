@@ -195,21 +195,20 @@ export default function StudentDashboard() {
       const createData = await createRes.json();
 
       if (createRes.ok) {
-        const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_placeholder", // Replace with actual Razorpay Key
+        const options: any = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_T2FcJDXckdlgIZ",
           amount: createData.booking.amount * 100,
           currency: "INR",
           name: "Educator Hub",
           description: `Session with ${selectedTutor.user.name}`,
-          order_id: createData.orderId,
           handler: async function (response: any) {
             const verifyRes = await fetch("http://localhost:4000/api/booking/verify-payment", {
               method: "POST",
               headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
               body: JSON.stringify({ 
                 bookingId: createData.booking.id, 
-                razorpayPaymentId: response.razorpay_payment_id, 
-                razorpayOrderId: response.razorpay_order_id, 
+                razorpayPaymentId: response.razorpay_payment_id || `pay_mock_${Date.now()}`, 
+                razorpayOrderId: response.razorpay_order_id || createData.orderId, 
                 razorpaySignature: response.razorpay_signature || "MOCK" 
               })
             });
@@ -227,6 +226,11 @@ export default function StudentDashboard() {
           },
           theme: { color: "#F26522" }
         };
+
+        // If it's a real Razorpay order, attach it. Otherwise omit to let standard checkout load
+        if (createData.orderId && !createData.orderId.startsWith('mock_order_')) {
+          options.order_id = createData.orderId;
+        }
 
         const rzp = new (window as any).Razorpay(options);
         rzp.on('payment.failed', function (response: any) {

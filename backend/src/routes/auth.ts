@@ -136,9 +136,10 @@ router.post('/verify-otp', async (req, res) => {
     if (user.otp !== otp) return res.status(400).json({ error: 'Invalid OTP' });
     if (!user.otpExpiry || user.otpExpiry < new Date()) return res.status(400).json({ error: 'OTP expired' });
 
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.id },
-      data: { isVerified: true, otp: null, otpExpiry: null }
+      data: { isVerified: true, otp: null, otpExpiry: null },
+      include: { studentProfile: true, tutorProfile: true }
     });
 
     const token = jwt.sign(
@@ -147,7 +148,7 @@ router.post('/verify-otp', async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    res.json({ message: 'OTP Verified successfully', token, user: { ...user, isVerified: true } });
+    res.json({ message: 'OTP Verified successfully', token, user: updatedUser });
   } catch (error) {
     console.error('OTP Verification Error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -158,7 +159,10 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ 
+      where: { email },
+      include: { studentProfile: true, tutorProfile: true }
+    });
     if (!user) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
@@ -174,7 +178,18 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, isVerified: user.isVerified } });
+    res.json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role, 
+        isVerified: user.isVerified,
+        studentProfile: user.studentProfile,
+        tutorProfile: user.tutorProfile
+      } 
+    });
   } catch (error) {
     console.error('Login Error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -211,10 +226,11 @@ router.put('/update', authenticate, async (req: any, res) => {
 
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
-      data: { name, email }
+      data: { name, email },
+      include: { studentProfile: true, tutorProfile: true }
     });
 
-    res.json({ user: { id: updatedUser.id, name: updatedUser.name, email: updatedUser.email, role: updatedUser.role, isVerified: updatedUser.isVerified } });
+    res.json({ user: updatedUser });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
