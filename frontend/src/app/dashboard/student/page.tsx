@@ -172,7 +172,18 @@ export default function StudentDashboard() {
     if (!selectedTutor || !bookingDate || !bookingTime) return alert("Select date and time.");
     setIsBooking(true);
     const token = localStorage.getItem("token");
-    const start = new Date(`${bookingDate}T${bookingTime}:00`);
+
+    // Safe cross-browser local date parsing
+    const [year, month, day] = bookingDate.split('-').map(Number);
+    const [hour, minute] = bookingTime.split(':').map(Number);
+    const start = new Date(year, month - 1, day, hour, minute, 0);
+
+    if (isNaN(start.getTime())) {
+      alert("Invalid date or time selected. Please select a valid slot.");
+      setIsBooking(false);
+      return;
+    }
+
     const end = new Date(start.getTime() + 60 * 60 * 1000); 
 
     try {
