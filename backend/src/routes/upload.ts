@@ -3,29 +3,27 @@ import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
 import { authenticate } from '../middleware/auth';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 const router = Router();
 
-// Configure AWS S3 Client
-const s3 = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'placeholder_key',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'placeholder_secret',
-  },
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.AWS_S3_BUCKET || 'student-tutor-marketplace-assets',
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    key: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, `uploads/${uniqueSuffix}-${file.originalname}`);
-    }
-  })
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'student-tutor-marketplace-assets',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
+  } as any,
 });
+
+const upload = multer({ storage: storage });
 
 // Upload endpoint
 router.post('/', authenticate, upload.single('file'), (req: any, res) => {
@@ -33,8 +31,8 @@ router.post('/', authenticate, upload.single('file'), (req: any, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    // req.file.location contains the S3 URL from multer-s3
-    res.json({ url: req.file.location });
+    // req.file.path contains the Cloudinary URL
+    res.json({ url: req.file.path });
   } catch (error) {
     console.error("Upload error:", error);
     res.status(500).json({ error: 'Internal server error' });
