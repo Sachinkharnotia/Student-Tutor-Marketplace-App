@@ -163,4 +163,30 @@ router.put('/update', authenticate, async (req: any, res) => {
   }
 });
 
+router.post('/submit-kyc', authenticate, async (req: any, res) => {
+  try {
+    const { phone, kycDocument, subjects, hourlyRate } = req.body;
+    
+    if (req.user.role !== 'TUTOR') {
+      return res.status(403).json({ error: 'Only tutors can submit KYC' });
+    }
+
+    const updatedProfile = await prisma.tutorProfile.update({
+      where: { userId: req.user.id },
+      data: {
+        phone,
+        kycDocument,
+        subjects,
+        hourlyRate,
+        kycStatus: 'PENDING'
+      }
+    });
+
+    res.json({ message: 'KYC submitted successfully', profile: updatedProfile });
+  } catch (error) {
+    console.error('KYC Submission Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
