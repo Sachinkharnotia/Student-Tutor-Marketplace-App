@@ -109,7 +109,7 @@ export default function StudentDashboard() {
 
       if (createRes.ok) {
         const options = {
-          key: "rzp_test_placeholder", // Replace with actual Razorpay Key
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_placeholder", // Replace with actual Razorpay Key
           amount: createData.booking.amount * 100,
           currency: "INR",
           name: "Educator Hub",
