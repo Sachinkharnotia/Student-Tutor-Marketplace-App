@@ -52,8 +52,16 @@ router.post('/', authenticate, upload.single('file'), (req: any, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    // req.file.path contains the Cloudinary URL
-    res.json({ url: req.file.path });
+    let url = req.file.path;
+
+    // For raw files, make the URL downloadable by adding fl_attachment
+    // Raw Cloudinary URLs look like: .../raw/upload/v123/folder/file.pdf
+    // We insert fl_attachment after /upload/ so it becomes: .../raw/upload/fl_attachment/v123/folder/file.pdf
+    if (url.includes('/raw/upload/')) {
+      url = url.replace('/raw/upload/', '/raw/upload/fl_attachment/');
+    }
+
+    res.json({ url });
   } catch (error) {
     console.error("Upload error:", error);
     res.status(500).json({ error: 'Internal server error' });

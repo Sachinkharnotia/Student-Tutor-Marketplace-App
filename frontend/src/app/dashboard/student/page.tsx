@@ -6,7 +6,7 @@ import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import { 
   BookOpen, Calendar, MessageSquare, Settings, LogOut, 
-  Search, Bell, ChevronRight, Star, Clock, ShieldAlert, Lock, UserCheck, PlayCircle, X, CheckCircle, Paperclip, FileText 
+  Search, Bell, ChevronRight, Star, Clock, ShieldAlert, Lock, UserCheck, PlayCircle, X, CheckCircle, Paperclip, FileText, Trash2, AlertTriangle 
 } from "lucide-react";
 
 export default function StudentDashboard() {
@@ -177,6 +177,28 @@ export default function StudentDashboard() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     router.push("/login");
+  };
+
+  const deleteAccount = async () => {
+    if (!confirm('⚠️ Are you sure you want to permanently delete your account? This action cannot be undone. All your data, bookings, and messages will be lost.')) return;
+    if (!confirm('This is your FINAL confirmation. Delete account permanently?')) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:4000/api/profile/delete-account", {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.push("/login");
+      } else {
+        showToast("Failed to delete account.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error deleting account.", "error");
+    }
   };
 
   const handleBookSlot = async () => {
@@ -909,6 +931,25 @@ export default function StudentDashboard() {
                 <button onClick={updateProfile} disabled={isUpdating} className="mt-8 bg-gray-900 text-white px-6 py-3 rounded-xl text-[13px] font-bold hover:bg-black transition shadow-sm w-full md:w-auto disabled:opacity-50">
                   {isUpdating ? "Saving..." : "Save Changes"}
                 </button>
+
+                {/* Danger Zone */}
+                <div className="mt-10 pt-6 border-t border-red-100">
+                  <div className="flex items-center gap-2 mb-4">
+                    <AlertTriangle size={16} className="text-red-500" />
+                    <h3 className="text-[14px] font-bold text-red-600">Danger Zone</h3>
+                  </div>
+                  <div className="bg-red-50/50 rounded-xl p-4 border border-red-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[13px] font-bold text-gray-900">Delete Account</p>
+                        <p className="text-[11px] text-gray-500 font-medium mt-0.5">Permanently delete your account and all associated data.</p>
+                      </div>
+                      <button onClick={deleteAccount} className="bg-red-500 text-white px-4 py-2 rounded-lg text-[12px] font-bold hover:bg-red-600 transition flex items-center gap-1.5 shrink-0">
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

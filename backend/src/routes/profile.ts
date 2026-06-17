@@ -61,4 +61,59 @@ router.post('/tutor', authenticate, authorize(['TUTOR']), async (req: any, res) 
   }
 });
 
+// Delete KYC document (tutor only)
+router.delete('/kyc-document', authenticate, authorize(['TUTOR']), async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+
+    const profile = await prisma.tutorProfile.update({
+      where: { userId },
+      data: { kycDocument: null }
+    });
+
+    res.json({ message: 'KYC document deleted.', profile });
+  } catch (error) {
+    console.error('Delete KYC Document Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete account (any authenticated user)
+router.delete('/delete-account', authenticate, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Delete in order: reviews & disputes -> bookings -> profiles -> user
+    // 1. Get all booking IDs for this user (as student or tutor)
+    const bookings = await prisma.booking.findMany({
+      where: { OR: [{ studentId: userId }, { tutorId: userId }] },
+      select: { id: true }
+    });
+    const bookingIds = bookings.map(b => b.id);
+
+    // 2. Delete reviews and disputes for those bookings
+    if (bookingIds.length > 0) {
+      await prisma.review.deleteMany({ where: { bookingId: { in: bookingIds } } });
+      await prisma.dispute.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    }
+
+    // 3. Delete all bookings
+    await prisma.booking.deleteMany({
+      where: { OR: [{ studentId: userId }, { tutorId: userId }] }
+    });
+
+    // 4. Delete profiles
+    await prisma.studentProfile.deleteMany({ where: { userId } });
+    await prisma.tutorProfile.deleteMany({ where: { userId } });
+
+    // 5. Delete user
+    await prisma.user.delete({ where: { id: userId } });
+
+    res.json({ message: 'Account deleted successfully.' });
+  } catch (error) {
+    console.error('Delete Account Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

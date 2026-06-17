@@ -6,7 +6,7 @@ import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import { 
   Briefcase, Calendar, MessageSquare, Settings, LogOut, 
-  Bell, FileText, CheckCircle, Clock, ShieldCheck, ChevronRight, X, Lock, Paperclip
+  Bell, FileText, CheckCircle, Clock, ShieldCheck, ChevronRight, X, Lock, Paperclip, Trash2, AlertTriangle
 } from "lucide-react";
 
 export default function TutorDashboard() {
@@ -272,6 +272,54 @@ export default function TutorDashboard() {
       setTimeout(() => setToastMessage(""), 3000);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const deleteKycDocument = async () => {
+    if (!confirm('Are you sure you want to delete your KYC document? Your verification status may be affected.')) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:4000/api/profile/kyc-document", {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setKycDocumentUrl("");
+        setToastMessage("KYC document deleted.");
+        setTimeout(() => setToastMessage(""), 3000);
+        fetchData();
+      } else {
+        setToastMessage("Failed to delete KYC document.");
+        setTimeout(() => setToastMessage(""), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setToastMessage("Error deleting KYC document.");
+      setTimeout(() => setToastMessage(""), 3000);
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!confirm('⚠️ Are you sure you want to permanently delete your account? This action cannot be undone. All your data, bookings, and messages will be lost.')) return;
+    if (!confirm('This is your FINAL confirmation. Delete account permanently?')) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:4000/api/profile/delete-account", {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.push("/login");
+      } else {
+        setToastMessage("Failed to delete account.");
+        setTimeout(() => setToastMessage(""), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setToastMessage("Error deleting account.");
+      setTimeout(() => setToastMessage(""), 3000);
     }
   };
 
@@ -577,7 +625,14 @@ export default function TutorDashboard() {
                     <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">KYC Document Upload</label>
                     <div className="flex items-center gap-3">
                       <input type="file" onChange={(e) => setKycFile(e.target.files ? e.target.files[0] : null)} className="flex-1 px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-                      {kycDocumentUrl && <a href={kycDocumentUrl} target="_blank" className="text-indigo-600 text-[12px] font-bold hover:underline whitespace-nowrap">View Current</a>}
+                      {kycDocumentUrl && (
+                        <>
+                          <a href={kycDocumentUrl} target="_blank" className="text-indigo-600 text-[12px] font-bold hover:underline whitespace-nowrap">View Current</a>
+                          <button onClick={deleteKycDocument} className="text-red-500 hover:text-red-700 transition-colors p-1.5 rounded-lg hover:bg-red-50" title="Delete KYC Document">
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div>
@@ -612,6 +667,25 @@ export default function TutorDashboard() {
                 <button onClick={updateProfile} disabled={isUpdating} className="mt-8 bg-gray-900 text-white px-6 py-3 rounded-xl text-[13px] font-bold hover:bg-black transition shadow-sm w-full md:w-auto disabled:opacity-50">
                   {isUpdating ? "Saving..." : "Save Changes"}
                 </button>
+
+                {/* Danger Zone */}
+                <div className="mt-10 pt-6 border-t border-red-100">
+                  <div className="flex items-center gap-2 mb-4">
+                    <AlertTriangle size={16} className="text-red-500" />
+                    <h3 className="text-[14px] font-bold text-red-600">Danger Zone</h3>
+                  </div>
+                  <div className="bg-red-50/50 rounded-xl p-4 border border-red-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[13px] font-bold text-gray-900">Delete Account</p>
+                        <p className="text-[11px] text-gray-500 font-medium mt-0.5">Permanently delete your account and all associated data.</p>
+                      </div>
+                      <button onClick={deleteAccount} className="bg-red-500 text-white px-4 py-2 rounded-lg text-[12px] font-bold hover:bg-red-600 transition flex items-center gap-1.5 shrink-0">
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
