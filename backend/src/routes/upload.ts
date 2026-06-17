@@ -21,6 +21,11 @@ const isImage = (filename: string, mimetype: string) => {
   return imageExtensions.includes(ext) || mimetype.startsWith('image/');
 };
 
+const isPdf = (filename: string, mimetype: string) => {
+  const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+  return ext === '.pdf' || mimetype === 'application/pdf';
+};
+
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req: any, file: any) => {
@@ -52,18 +57,53 @@ router.post('/', authenticate, upload.single('file'), (req: any, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    let url = req.file.path;
-
-    // For raw files, make the URL downloadable by adding fl_attachment
-    // Raw Cloudinary URLs look like: .../raw/upload/v123/folder/file.pdf
-    // We insert fl_attachment after /upload/ so it becomes: .../raw/upload/fl_attachment/v123/folder/file.pdf
-    if (url.includes('/raw/upload/')) {
-      url = url.replace('/raw/upload/', '/raw/upload/fl_attachment/');
-    }
-
+    const url = req.file.path;
     res.json({ url });
   } catch (error) {
     console.error("Upload error:", error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Download proxy endpoint - fetches Cloudinary file and serves it with download headers
+router.get('/download', authenticate, async (req: any, res) => {
+  try {
+    const fileUrl = req.query.url as string;
+    if (!fileUrl) {
+      return res.status(400).json({ error: 'No URL provided' });
+    }
+
+    // Only allow Cloudinary URLs for security
+    if (!fileUrl.includes('cloudinary.com') && !fileUrl.includes('res.cloudinary.com')) {
+      return res.status(403).json({ error: 'Only Cloudinary file downloads are allowed' });
+    }
+
+    // Extract filename from URL
+    const urlParts = fileUrl.split('/');
+    let filename = urlParts[urlParts.length - 1].split('?')[0];
+    // Clean up Cloudinary public_id timestamps
+    filename = decodeURIComponent(filename);
+
+    // Fetch the file from Cloudinary
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch file from storage' });
+    }
+
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    const contentLength = response.headers.get('content-length');
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+
+    // Stream the response body to the client
+    const arrayBuffer = await response.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (error) {
+    console.error("Download proxy error:", error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

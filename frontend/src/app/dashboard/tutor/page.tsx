@@ -6,7 +6,7 @@ import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import { 
   Briefcase, Calendar, MessageSquare, Settings, LogOut, 
-  Bell, FileText, CheckCircle, Clock, ShieldCheck, ChevronRight, X, Lock, Paperclip, Trash2, AlertTriangle
+  Bell, FileText, CheckCircle, Clock, ShieldCheck, ChevronRight, X, Lock, Paperclip, Trash2, AlertTriangle, Download
 } from "lucide-react";
 
 export default function TutorDashboard() {
@@ -24,6 +24,39 @@ export default function TutorDashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [kycSubmitted, setKycSubmitted] = useState(false);
+  const [availabilities, setAvailabilities] = useState<any[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Force download helper for cross-origin files (Cloudinary)
+  const forceDownload = async (url: string) => {
+    const token = localStorage.getItem("token");
+    try {
+      setToastMessage("Downloading file...");
+      const res = await fetch(`http://localhost:4000/api/upload/download?url=${encodeURIComponent(url)}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      // Extract filename from URL
+      const urlParts = url.split('/');
+      a.download = decodeURIComponent(urlParts[urlParts.length - 1].split('?')[0]) || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      setToastMessage("File downloaded!");
+      setTimeout(() => setToastMessage(""), 3000);
+    } catch (err) {
+      console.error('Download error:', err);
+      // Fallback: open in new tab
+      window.open(url, '_blank');
+      setToastMessage("Opened file in new tab (download failed)");
+      setTimeout(() => setToastMessage(""), 3000);
+    }
+  };
 
   // KYC Form State
   const [subject, setSubject] = useState("");
@@ -54,9 +87,12 @@ export default function TutorDashboard() {
     if (parsed.tutorProfile) {
       setEditPhone(parsed.tutorProfile.phone || "");
       setKycDocumentUrl(parsed.tutorProfile.kycDocument || "");
-      setKycSubmitted(!!parsed.tutorProfile.phone);
+      setKycSubmitted(!!parsed.tutorProfile.phone && parsed.tutorProfile.kycStatus !== 'REJECTED');
       setEditHourlyRate(parsed.tutorProfile.hourlyRate?.toString() || "");
       setEditSubjects(parsed.tutorProfile.subjects?.join(", ") || "");
+      setPhone(parsed.tutorProfile.phone || "");
+      setHourlyRate(parsed.tutorProfile.hourlyRate?.toString() || "");
+      setSubject(parsed.tutorProfile.subjects?.join(", ") || "");
     }
 
     const newSocket = io("http://localhost:4000");
@@ -68,18 +104,23 @@ export default function TutorDashboard() {
   }, [router]);
 
   const fetchData = async () => {
+    setIsLoadingData(true);
     const token = localStorage.getItem("token");
     try {
+      let data: any = null;
       const res = await fetch("http://localhost:4000/api/auth/me", { headers: { "Authorization": `Bearer ${token}` } });
       if (res.ok) {
-        const data = await res.json();
+        data = await res.json();
         setUser(data.user);
-        setKycSubmitted(!!data.user.tutorProfile?.phone);
+        setKycSubmitted(!!data.user.tutorProfile?.phone && data.user.tutorProfile?.kycStatus !== 'REJECTED');
         if (data.user.tutorProfile) {
           setEditPhone(data.user.tutorProfile.phone || "");
           setKycDocumentUrl(data.user.tutorProfile.kycDocument || "");
           setEditHourlyRate(data.user.tutorProfile.hourlyRate?.toString() || "");
           setEditSubjects(data.user.tutorProfile.subjects?.join(", ") || "");
+          setPhone(data.user.tutorProfile.phone || "");
+          setHourlyRate(data.user.tutorProfile.hourlyRate?.toString() || "");
+          setSubject(data.user.tutorProfile.subjects?.join(", ") || "");
         }
       }
       const bookingsRes = await fetch("http://localhost:4000/api/booking/tutor-bookings", { headers: { "Authorization": `Bearer ${token}` } });
@@ -87,8 +128,19 @@ export default function TutorDashboard() {
         const bookingsData = await bookingsRes.json();
         setBookings(bookingsData);
       }
+
+      const tutorProfileId = data?.user?.tutorProfile?.id || user?.tutorProfile?.id;
+      if (tutorProfileId) {
+        const availRes = await fetch(`http://localhost:4000/api/availability/${tutorProfileId}`, { headers: { "Authorization": `Bearer ${token}` } });
+        if (availRes.ok) {
+          const availData = await availRes.json();
+          setAvailabilities(availData);
+        }
+      }
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -107,6 +159,11 @@ export default function TutorDashboard() {
 
   const submitKYC = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!kycFormFile) {
+      setToastMessage("KYC ID Proof document is compulsory.");
+      setTimeout(() => setToastMessage(""), 3000);
+      return;
+    }
     setIsSubmittingKyc(true);
     const token = localStorage.getItem("token");
     try {
@@ -161,6 +218,31 @@ export default function TutorDashboard() {
     if (socket) socket.emit("join_room", booking.id);
   };
 
+  const cancelBooking = async (bookingId: string) => {
+    if (!confirm("Are you sure you want to cancel this booking?")) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:4000/api/booking/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ bookingId })
+      });
+      if (res.ok) {
+        setToastMessage("Booking cancelled.");
+        setTimeout(() => setToastMessage(""), 3000);
+        fetchData();
+      } else {
+        const err = await res.json();
+        setToastMessage(err.error || "Failed to cancel booking");
+        setTimeout(() => setToastMessage(""), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setToastMessage("Error cancelling booking.");
+      setTimeout(() => setToastMessage(""), 3000);
+    }
+  };
+
   const sendMessage = () => {
     if (!chatInput.trim() || !activeChat || !socket) return;
     const messageData = { room: activeChat.id, senderId: user.id, message: chatInput };
@@ -202,6 +284,11 @@ export default function TutorDashboard() {
   };
 
   const updateProfile = async () => {
+    if (!kycDocumentUrl && !kycFile) {
+      setToastMessage("KYC ID Proof document is compulsory.");
+      setTimeout(() => setToastMessage(""), 3000);
+      return;
+    }
     setIsUpdating(true);
     const token = localStorage.getItem("token");
     try {
@@ -249,8 +336,15 @@ export default function TutorDashboard() {
         })
       });
 
-      if (res1.ok && res2.ok) {
-        setToastMessage("Profile & KYC updated successfully!");
+      // Update Availability
+      const res3 = await fetch("http://localhost:4000/api/availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ availabilities })
+      });
+
+      if (res1.ok && res2.ok && res3.ok) {
+        setToastMessage("Profile, KYC & Availability updated successfully!");
         setTimeout(() => setToastMessage(""), 3000);
         
         // Refresh user data from API
@@ -273,6 +367,29 @@ export default function TutorDashboard() {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleAvailabilityChange = (dayOfWeek: number, field: string, value: string) => {
+    setAvailabilities(prev => {
+      const existing = prev.find(a => a.dayOfWeek === dayOfWeek);
+      if (existing) {
+        return prev.map(a => a.dayOfWeek === dayOfWeek ? { ...a, [field]: value } : a);
+      } else {
+        const newAv: any = { dayOfWeek, startTime: "09:00", endTime: "17:00" };
+        newAv[field] = value;
+        return [...prev, newAv];
+      }
+    });
+  };
+
+  const toggleAvailability = (dayOfWeek: number) => {
+    setAvailabilities(prev => {
+      if (prev.find(a => a.dayOfWeek === dayOfWeek)) {
+        return prev.filter(a => a.dayOfWeek !== dayOfWeek);
+      } else {
+        return [...prev, { dayOfWeek, startTime: "09:00", endTime: "17:00" }];
+      }
+    });
   };
 
   const deleteKycDocument = async () => {
@@ -311,6 +428,7 @@ export default function TutorDashboard() {
       if (res.ok) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        localStorage.setItem("toastMessage", JSON.stringify({ message: "Your account has been permanently deleted.", type: "success" }));
         router.push("/login");
       } else {
         setToastMessage("Failed to delete account.");
@@ -323,9 +441,40 @@ export default function TutorDashboard() {
     }
   };
 
-  if (!user) return <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa] text-gray-400 text-sm">Loading workspace...</div>;
+  if (!user || isLoadingData) return (
+    <div className="min-h-screen flex bg-gray-50 font-sans">
+      {/* Sidebar Skeleton */}
+      <div className="w-20 md:w-64 bg-white border-r border-gray-100 flex flex-col h-screen p-4 space-y-4">
+        <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+        <div className="flex-1 space-y-2 pt-6">
+          <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+          <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+        </div>
+      </div>
+      {/* Main Content Skeleton */}
+      <div className="flex-1 flex flex-col ml-20 md:ml-64">
+        <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-end px-8">
+          <div className="w-24 h-8 bg-gray-100 rounded-xl animate-pulse"></div>
+        </header>
+        <main className="flex-1 p-8 space-y-6">
+          <div className="max-w-4xl space-y-6">
+            <div className="space-y-2">
+              <div className="h-6 w-48 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-32 bg-gray-100 rounded animate-pulse"></div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+              <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+              <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+            </div>
+            <div className="h-64 bg-gray-100 rounded-2xl animate-pulse"></div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 
-  const isVerified = user.isVerified === true;
+  const isVerified = user.tutorProfile?.kycStatus === 'APPROVED';
 
   const renderSidebar = () => (
     <div className="w-20 md:w-64 bg-white border-r border-gray-100 flex flex-col h-screen fixed left-0 top-0 transition-all z-20">
@@ -403,6 +552,15 @@ export default function TutorDashboard() {
 
       {!kycSubmitted && !isVerified ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8">
+          {user.tutorProfile?.kycStatus === 'REJECTED' && (
+            <div className="mb-6 bg-rose-50 border border-rose-100 rounded-xl p-4 flex items-start gap-3 text-rose-800 animate-in fade-in">
+              <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[13px] font-bold">KYC Submission Rejected</p>
+                <p className="text-[11px] text-rose-600/90 mt-0.5">Your previous application was rejected by the administration team. Please update your details and resubmit.</p>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-[#F26522]">
               <FileText size={18} />
@@ -427,9 +585,24 @@ export default function TutorDashboard() {
               <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 98765 43210" className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] transition-all" />
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">KYC Document (ID Proof)</label>
-              <input type="file" onChange={e => setKycFormFile(e.target.files ? e.target.files[0] : null)} className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-orange-50 file:text-[#F26522] hover:file:bg-orange-100" />
-              <p className="text-[10px] text-gray-400 mt-1">Upload Aadhaar, PAN, or any government-issued ID</p>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">KYC Document (ID Proof - PDF Only)</label>
+              <input 
+                type="file" 
+                accept=".pdf,application/pdf"
+                onChange={e => {
+                  const file = e.target.files ? e.target.files[0] : null;
+                  if (file && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+                    setToastMessage("Only PDF documents are allowed.");
+                    setTimeout(() => setToastMessage(""), 3000);
+                    e.target.value = "";
+                    setKycFormFile(null);
+                  } else {
+                    setKycFormFile(file);
+                  }
+                }}
+                className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-orange-50 file:text-[#F26522] hover:file:bg-orange-100" 
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Upload Aadhaar, PAN, or any government-issued ID in PDF format</p>
             </div>
             <button type="submit" disabled={isSubmittingKyc} className="w-full bg-gray-900 text-white py-3 rounded-xl text-[13px] font-bold hover:bg-black transition shadow-sm mt-2 flex justify-center items-center gap-2 disabled:opacity-50">
               {isSubmittingKyc ? 'Submitting...' : 'Submit for Verification'} <ChevronRight size={14} />
@@ -496,9 +669,14 @@ export default function TutorDashboard() {
             {user.tutorProfile?.kycDocument && (
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">KYC Document</p>
-                <a href={user.tutorProfile.kycDocument} target="_blank" rel="noopener noreferrer" className="text-[12px] font-bold text-indigo-600 hover:underline flex items-center gap-1.5">
-                  <FileText size={14} /> View Uploaded Document
-                </a>
+                <div className="flex items-center gap-3">
+                  <a href={user.tutorProfile.kycDocument} target="_blank" rel="noopener noreferrer" className="text-[12px] font-bold text-indigo-600 hover:underline flex items-center gap-1.5">
+                    <FileText size={14} /> View Document
+                  </a>
+                  <button onClick={() => forceDownload(user.tutorProfile.kycDocument)} className="text-[12px] font-bold text-emerald-600 hover:underline flex items-center gap-1.5 transition">
+                    <Download size={14} /> Download
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -557,9 +735,35 @@ export default function TutorDashboard() {
                       <div key={i} className={`flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
                         <div className={`px-4 py-2.5 rounded-2xl max-w-[75%] text-[13px] font-medium leading-relaxed ${msg.senderId === user.id ? 'bg-[#F26522] text-white rounded-br-sm shadow-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
                           {msg.message.startsWith('[FILE] ') ? (
-                            <a href={msg.message.replace('[FILE] ', '')} target="_blank" className="flex items-center gap-2 hover:underline">
-                              <FileText size={16} /> View Attachment
-                            </a>
+                            (() => {
+                              const rawUrl = msg.message.replace('[FILE] ', '');
+                              const fileUrl = rawUrl.replace('/raw/upload/fl_attachment/', '/raw/upload/');
+                              const lowerUrl = fileUrl.toLowerCase().split('?')[0].split('#')[0];
+                              const isImg = lowerUrl.endsWith('.png') || lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg') || lowerUrl.endsWith('.gif') || lowerUrl.endsWith('.webp') || lowerUrl.endsWith('.svg') || lowerUrl.endsWith('.bmp');
+                              if (isImg) {
+                                return (
+                                  <div>
+                                    <a href={fileUrl} target="_blank" rel="noreferrer">
+                                      <img src={fileUrl} alt="Chat attachment" className="max-w-[200px] rounded-lg mt-1 border border-white/20" />
+                                    </a>
+                                    <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-1.5 mt-1.5 text-[11px] opacity-80 hover:opacity-100 hover:underline transition">
+                                      <Download size={12} /> Download
+                                    </button>
+                                  </div>
+                                );
+                              } else {
+                                return (
+                                  <div className="flex flex-col gap-1.5">
+                                    <a href={fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:underline font-bold">
+                                      <FileText size={16} /> Open File
+                                    </a>
+                                    <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-2 hover:underline font-bold text-left opacity-90 hover:opacity-100 transition">
+                                      <Download size={16} /> Download File
+                                    </button>
+                                  </div>
+                                );
+                              }
+                            })()
                           ) : (
                             msg.message
                           )}
@@ -622,16 +826,31 @@ export default function TutorDashboard() {
                     <input type="tel" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-indigo-200 focus:ring-2 focus:ring-indigo-50 transition-all" />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">KYC Document Upload</label>
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">KYC Document Upload (PDF Only)</label>
                     <div className="flex items-center gap-3">
-                      <input type="file" onChange={(e) => setKycFile(e.target.files ? e.target.files[0] : null)} className="flex-1 px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                      <input 
+                        type="file" 
+                        accept=".pdf,application/pdf"
+                        onChange={(e) => {
+                          const file = e.target.files ? e.target.files[0] : null;
+                          if (file && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+                            setToastMessage("Only PDF documents are allowed.");
+                            setTimeout(() => setToastMessage(""), 3000);
+                            e.target.value = "";
+                            setKycFile(null);
+                          } else {
+                            setKycFile(file);
+                          }
+                        }}
+                        className="flex-1 px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
+                      />
                       {kycDocumentUrl && (
-                        <>
+                        <div className="flex items-center gap-2">
                           <a href={kycDocumentUrl} target="_blank" className="text-indigo-600 text-[12px] font-bold hover:underline whitespace-nowrap">View Current</a>
                           <button onClick={deleteKycDocument} className="text-red-500 hover:text-red-700 transition-colors p-1.5 rounded-lg hover:bg-red-50" title="Delete KYC Document">
                             <Trash2 size={14} />
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -661,6 +880,46 @@ export default function TutorDashboard() {
                     ) : (
                       <span className="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-amber-200/60">Pending</span>
                     )}
+                  </div>
+                  
+                  {/* Weekly Availability */}
+                  <div className="pt-4 border-t border-gray-100">
+                    <label className="block text-[12px] font-bold text-gray-900 mb-3">Weekly Availability</label>
+                    <div className="space-y-3">
+                      {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => {
+                        const av = availabilities.find(a => a.dayOfWeek === index);
+                        return (
+                          <div key={day} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={!!av} 
+                                onChange={() => toggleAvailability(index)}
+                                className="w-4 h-4 text-[#F26522] focus:ring-[#F26522] rounded border-gray-300"
+                              />
+                              <span className="text-[13px] font-bold text-gray-700">{day}</span>
+                            </label>
+                            {av && (
+                              <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <input 
+                                  type="time" 
+                                  value={av.startTime} 
+                                  onChange={(e) => handleAvailabilityChange(index, 'startTime', e.target.value)}
+                                  className="px-3 py-1.5 text-[12px] font-medium border border-gray-200 rounded-lg focus:outline-none focus:border-[#F26522]"
+                                />
+                                <span className="text-gray-400 text-[12px]">to</span>
+                                <input 
+                                  type="time" 
+                                  value={av.endTime} 
+                                  onChange={(e) => handleAvailabilityChange(index, 'endTime', e.target.value)}
+                                  className="px-3 py-1.5 text-[12px] font-medium border border-gray-200 rounded-lg focus:outline-none focus:border-[#F26522]"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 

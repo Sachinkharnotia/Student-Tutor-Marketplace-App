@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Eye, EyeOff, GraduationCap, ChevronRight } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, GraduationCap, ChevronRight, CheckCircle, X } from "lucide-react";
 import { Shader, Swirl, ChromaFlow, FlutedGlass, FilmGrain } from "shaders/react";
 
 export default function Login() {
@@ -16,7 +16,18 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState("");
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const router = useRouter();
+
+  // Auto-dismiss toast after 4 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   // Read visual query param state client-side
   useEffect(() => {
@@ -24,6 +35,16 @@ export default function Login() {
       const params = new URLSearchParams(window.location.search);
       if (params.get("mode") === "register") {
         setAuthMode("register");
+      }
+      const savedToast = localStorage.getItem("toastMessage");
+      if (savedToast) {
+        try {
+          const parsed = JSON.parse(savedToast);
+          setToast({ message: parsed.message, type: parsed.type });
+        } catch (e) {
+          setToast({ message: savedToast, type: "success" });
+        }
+        localStorage.removeItem("toastMessage");
       }
     }
   }, []);
@@ -43,6 +64,13 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok) {
+        // If backend says user needs OTP verification, switch to OTP mode
+        if (data.requiresOtp) {
+          setEmail(data.email);
+          setAuthMode("otp");
+          setIsLoading(false);
+          return;
+        }
         throw new Error(data.error || "Login failed");
       }
 
@@ -98,7 +126,7 @@ export default function Login() {
       const res = await fetch("http://localhost:4000/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp }),
+        body: JSON.stringify({ email, otp: otp.trim() }),
       });
 
       const data = await res.json();
@@ -110,15 +138,17 @@ export default function Login() {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       
-      alert("Registration & Verification successful!");
+      setToast({ message: "Registration & Verification successful! Redirecting...", type: "success" });
       
-      if (data.user.role === 'STUDENT') {
-        router.push('/dashboard/student');
-      } else if (data.user.role === 'TUTOR') {
-        router.push('/dashboard/tutor');
-      } else {
-        router.push('/dashboard/admin');
-      }
+      setTimeout(() => {
+        if (data.user.role === 'STUDENT') {
+          router.push('/dashboard/student');
+        } else if (data.user.role === 'TUTOR') {
+          router.push('/dashboard/tutor');
+        } else {
+          router.push('/dashboard/admin');
+        }
+      }, 1200);
 
     } catch (err: any) {
       setError(err.message);
@@ -126,8 +156,52 @@ export default function Login() {
     }
   };
 
+  const handleResendOtp = async () => {
+    setIsResending(true);
+    setError("");
+    setResendSuccess("");
+    try {
+      const res = await fetch("http://localhost:4000/api/auth/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to resend OTP");
+      }
+      setResendSuccess("New OTP sent! Check your inbox.");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="h-screen w-full relative flex bg-transparent font-sans selection:bg-orange-100 overflow-hidden">
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none" style={{ animation: 'slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          <div className={`mt-5 pointer-events-auto flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl backdrop-blur-xl border text-[13px] font-bold ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/95 text-white border-emerald-400/30 shadow-emerald-500/25' 
+              : 'bg-red-500/95 text-white border-red-400/30 shadow-red-500/25'
+          }`}>
+            <CheckCircle size={18} className="shrink-0" />
+            <span>{toast.message}</span>
+            <button onClick={() => setToast(null)} className="ml-2 hover:bg-white/20 rounded-full p-0.5 transition-colors">
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+      <style jsx>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
       {/* Full-Screen Shader Background - absolute inset-0 so it matches the viewport precisely */}
       <div className="absolute inset-0 z-0 pointer-events-auto cursor-pointer">
         <Shader className="w-full h-full" style={{ width: "100%", height: "100%" }}>
@@ -337,15 +411,29 @@ export default function Login() {
 
               {authMode === "otp" && (
                 <form onSubmit={handleVerifyOtp} className="space-y-3.5">
-                  <p className="text-[12px] text-gray-500 font-semibold text-center mb-4 leading-relaxed">
+                  <p className="text-[12px] text-gray-500 font-semibold text-center mb-2 leading-relaxed">
                     We've sent a 6-digit OTP to <b className="text-gray-800">{email}</b>. Please enter it below.
                   </p>
+                  
+                  {/* Spam folder note */}
+                  <div className="bg-amber-50/80 border border-amber-200/60 rounded-lg px-3 py-2 text-center">
+                    <p className="text-[11px] text-amber-700 font-semibold leading-relaxed">
+                      📧 Can't find the email? Please check your <b>Spam</b> or <b>Promotions</b> folder.
+                    </p>
+                  </div>
+
+                  {resendSuccess && (
+                    <div className="bg-emerald-50/80 border border-emerald-200/60 rounded-lg px-3 py-2 text-center">
+                      <p className="text-[11px] text-emerald-700 font-semibold">{resendSuccess}</p>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">One-Time Password</label>
                     <input 
                       type="text" 
                       value={otp} 
-                      onChange={(e) => setOtp(e.target.value)} 
+                      onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))} 
                       required
                       maxLength={6}
                       placeholder="123456"
@@ -360,13 +448,23 @@ export default function Login() {
                     {isLoading ? "Verifying..." : "Verify OTP"}
                   </button>
 
-                  <button 
-                    type="button"
-                    onClick={() => { setAuthMode("register"); setError(""); }}
-                    className="w-full text-center text-xs text-orange-600 hover:underline font-bold mt-4 cursor-pointer"
-                  >
-                    Change email / Back to register
-                  </button>
+                  <div className="flex items-center justify-between mt-3">
+                    <button 
+                      type="button"
+                      onClick={() => { setAuthMode("register"); setError(""); setResendSuccess(""); }}
+                      className="text-xs text-gray-500 hover:text-gray-700 font-bold cursor-pointer"
+                    >
+                      ← Back
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={isResending}
+                      className="text-xs text-orange-600 hover:underline font-bold cursor-pointer disabled:opacity-50"
+                    >
+                      {isResending ? "Sending..." : "Resend OTP"}
+                    </button>
+                  </div>
                 </form>
               )}
 

@@ -37,6 +37,15 @@ router.post('/tutor', authenticate, authorize(['TUTOR']), async (req: any, res) 
     const userId = req.user.id;
     const { phone, kycDocument, subjects, hourlyRate } = req.body;
 
+    if (!kycDocument) {
+      return res.status(400).json({ error: 'KYC ID Proof Document is compulsory.' });
+    }
+
+    const docUrlLower = kycDocument.toLowerCase();
+    if (!docUrlLower.endsWith('.pdf') && !docUrlLower.includes('.pdf?')) {
+      return res.status(400).json({ error: 'Only PDF files are accepted for KYC verification.' });
+    }
+
     const currentProfile = await prisma.tutorProfile.findUnique({
       where: { userId }
     });

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import { 
   BookOpen, Calendar, MessageSquare, Settings, LogOut, 
-  Search, Bell, ChevronRight, Star, Clock, ShieldAlert, Lock, UserCheck, PlayCircle, X, CheckCircle, Paperclip, FileText, Trash2, AlertTriangle 
+  Search, Bell, ChevronRight, Star, Clock, ShieldAlert, Lock, UserCheck, PlayCircle, X, CheckCircle, Paperclip, FileText, Trash2, AlertTriangle, Download 
 } from "lucide-react";
 
 export default function StudentDashboard() {
@@ -34,12 +34,28 @@ export default function StudentDashboard() {
   const [tutors, setTutors] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Filters
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterSubject, setFilterSubject] = useState("");
+  const [filterMinPrice, setFilterMinPrice] = useState("");
+  const [filterMaxPrice, setFilterMaxPrice] = useState("");
+  const [filterSortBy, setFilterSortBy] = useState("");
 
   // Booking Modal State
   const [selectedTutor, setSelectedTutor] = useState<any>(null);
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
   const [isBooking, setIsBooking] = useState(false);
+
+  // Rating & Dispute Modal State
+  const [ratingBooking, setRatingBooking] = useState<any>(null);
+  const [ratingVal, setRatingVal] = useState(5);
+  const [ratingComment, setRatingComment] = useState("");
+  
+  const [disputeBooking, setDisputeBooking] = useState<any>(null);
+  const [disputeReason, setDisputeReason] = useState("");
   const [showNotifications, setShowNotifications] = useState(false);
 
   // Chat State
@@ -48,10 +64,32 @@ export default function StudentDashboard() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
 
-  // Rating State
-  const [ratingBooking, setRatingBooking] = useState<any>(null);
-  const [ratingVal, setRatingVal] = useState(5);
-  const [ratingComment, setRatingComment] = useState("");
+  // Force download helper for cross-origin files (Cloudinary)
+  const forceDownload = async (url: string) => {
+    const token = localStorage.getItem("token");
+    try {
+      showToast("Downloading file...", "info");
+      const res = await fetch(`http://localhost:4000/api/upload/download?url=${encodeURIComponent(url)}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      const urlParts = url.split('/');
+      a.download = decodeURIComponent(urlParts[urlParts.length - 1].split('?')[0]) || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      showToast("File downloaded!", "success");
+    } catch (err) {
+      console.error('Download error:', err);
+      window.open(url, '_blank');
+      showToast("Opened file in new tab (download failed)", "info");
+    }
+  };
 
   useEffect(() => {
     if (user && user.studentProfile) {
@@ -119,24 +157,71 @@ export default function StudentDashboard() {
     };
   }, [router]);
 
-  const fetchData = async () => {
+  const fetchTutors = async () => {
     const token = localStorage.getItem("token");
     try {
-      const [resTutors, resBookings, resMe] = await Promise.all([
-        fetch("http://localhost:4000/api/marketplace/tutors", { headers: { "Authorization": `Bearer ${token}` } }),
+      const params = new URLSearchParams();
+      if (filterSearch) params.append("search", filterSearch);
+      if (filterSubject) params.append("subject", filterSubject);
+      if (filterMinPrice) params.append("minPrice", filterMinPrice);
+      if (filterMaxPrice) params.append("maxPrice", filterMaxPrice);
+      if (filterSortBy) params.append("sortBy", filterSortBy);
+
+      const res = await fetch(`http://localhost:4000/api/marketplace/tutors?${params.toString()}`, { 
+        headers: { "Authorization": `Bearer ${token}` } 
+      });
+      if (res.ok) {
+        setTutors(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const submitDispute = async () => {
+    if (!disputeReason) return showToast("Reason is required", "error");
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:4000/api/dispute/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ bookingId: disputeBooking.id, reason: disputeReason })
+      });
+      if (res.ok) {
+        showToast("Dispute submitted.", "success");
+        setDisputeBooking(null);
+        setDisputeReason("");
+        fetchData();
+      } else {
+        const err = await res.json();
+        showToast(err.error || "Failed to submit dispute", "error");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchData = async () => {
+    setIsLoadingData(true);
+    const token = localStorage.getItem("token");
+    try {
+      const [resBookings, resMe] = await Promise.all([
         fetch("http://localhost:4000/api/booking/my-bookings", { headers: { "Authorization": `Bearer ${token}` } }),
         fetch("http://localhost:4000/api/auth/me", { headers: { "Authorization": `Bearer ${token}` } })
       ]);
       
-      if (resTutors.ok) setTutors(await resTutors.json());
       if (resBookings.ok) setBookings(await resBookings.json());
       if (resMe.ok) {
         const meData = await resMe.json();
         setUser(meData.user);
         localStorage.setItem("user", JSON.stringify(meData.user));
       }
+      
+      await fetchTutors();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -191,6 +276,7 @@ export default function StudentDashboard() {
       if (res.ok) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        localStorage.setItem("toastMessage", JSON.stringify({ message: "Your account has been permanently deleted.", type: "success" }));
         router.push("/login");
       } else {
         showToast("Failed to delete account.", "error");
@@ -198,6 +284,28 @@ export default function StudentDashboard() {
     } catch (err) {
       console.error(err);
       showToast("Error deleting account.", "error");
+    }
+  };
+
+  const cancelBooking = async (bookingId: string) => {
+    if (!confirm("Are you sure you want to cancel this booking? If you paid, you might get a refund based on our policy.")) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:4000/api/booking/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ bookingId })
+      });
+      if (res.ok) {
+        showToast("Booking cancelled.", "success");
+        fetchData();
+      } else {
+        const err = await res.json();
+        showToast(err.error || "Failed to cancel booking", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error cancelling booking.", "error");
     }
   };
 
@@ -369,7 +477,38 @@ export default function StudentDashboard() {
     }
   };
 
-  if (!user) return <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa] text-gray-400 text-sm">Loading workspace...</div>;
+  if (!user || isLoadingData) return (
+    <div className="min-h-screen flex bg-[#f5f5f5] font-sans">
+      {/* Sidebar Skeleton */}
+      <div className="w-20 md:w-64 bg-white border-r border-gray-100 flex flex-col h-screen p-4 space-y-4">
+        <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+        <div className="flex-1 space-y-2 pt-6">
+          <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+          <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+        </div>
+      </div>
+      {/* Main Content Skeleton */}
+      <div className="flex-1 flex flex-col ml-20 md:ml-64">
+        <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-end px-8">
+          <div className="w-24 h-8 bg-gray-100 rounded-xl animate-pulse"></div>
+        </header>
+        <main className="flex-1 p-8 space-y-6">
+          <div className="max-w-5xl space-y-6">
+            <div className="space-y-2">
+              <div className="h-6 w-48 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-32 bg-gray-100 rounded animate-pulse"></div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+              <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+              <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+            </div>
+            <div className="h-64 bg-gray-100 rounded-2xl animate-pulse"></div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 
   const isOtpVerified = user.isVerified === true;
   const isProfileComplete = !!user.studentProfile?.phone;
@@ -417,6 +556,22 @@ export default function StudentDashboard() {
       </div>
     );
   }
+
+  const NavItem = ({ icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) => (
+    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${active ? 'bg-orange-50 text-[#F26522]' : 'text-gray-500 hover:bg-gray-50'}`}>
+      {React.cloneElement(icon, { size: 18 })} <span className="hidden md:block">{label}</span>
+    </button>
+  );
+
+  const StatCard = ({ title, value, icon, bg, className = "" }: any) => (
+    <div className={`p-4 rounded-2xl border border-gray-100 bg-white shadow-sm ${className}`}>
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${bg}`}>
+        {icon}
+      </div>
+      <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{title}</div>
+      <div className="text-xl font-bold text-gray-900 mt-1">{value}</div>
+    </div>
+  );
 
   const renderSidebar = () => (
     <div className="w-20 md:w-64 bg-white border-r border-gray-100 flex flex-col h-screen fixed left-0 top-0 transition-all z-20">
@@ -613,6 +768,30 @@ export default function StudentDashboard() {
         <p className="text-[13px] text-gray-500 mt-0.5">Find the perfect educator.</p>
       </div>
 
+        <div className="flex flex-col md:flex-row gap-4 mb-6 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex-1">
+            <input type="text" placeholder="Search by name..." value={filterSearch} onChange={e => setFilterSearch(e.target.value)} className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]" />
+          </div>
+          <div className="w-full md:w-48">
+            <input type="text" placeholder="Subject (e.g. Math)" value={filterSubject} onChange={e => setFilterSubject(e.target.value)} className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]" />
+          </div>
+          <div className="w-full md:w-32 flex gap-2">
+            <input type="number" placeholder="Min ₹" value={filterMinPrice} onChange={e => setFilterMinPrice(e.target.value)} className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]" />
+            <input type="number" placeholder="Max ₹" value={filterMaxPrice} onChange={e => setFilterMaxPrice(e.target.value)} className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]" />
+          </div>
+          <div className="w-full md:w-48">
+            <select value={filterSortBy} onChange={e => setFilterSortBy(e.target.value)} className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]">
+              <option value="">Sort By</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+              <option value="rating_desc">Rating: Highest First</option>
+            </select>
+          </div>
+          <button onClick={fetchTutors} className="bg-[#F26522] text-white px-6 py-2 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition shadow-sm">
+            Search
+          </button>
+        </div>
+
       {!isVerified ? (
          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-gray-100 shadow-sm">
            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100">
@@ -623,7 +802,7 @@ export default function StudentDashboard() {
          </div>
       ) : tutors.length === 0 ? (
         <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center text-gray-400 text-[13px] shadow-sm">
-          No tutors available right now.
+          No tutors found matching your criteria.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -676,12 +855,46 @@ export default function StudentDashboard() {
             <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Select Date</label>
-                <input type="date" value={bookingDate} onChange={e => setBookingDate(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] font-medium text-gray-800 transition-all" />
+                <input type="date" value={bookingDate} onChange={e => {setBookingDate(e.target.value); setBookingTime("");}} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] font-medium text-gray-800 transition-all" />
               </div>
-              <div>
-                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Select Time</label>
-                <input type="time" value={bookingTime} onChange={e => setBookingTime(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] font-medium text-gray-800 transition-all" />
-              </div>
+              
+              {bookingDate && selectedTutor.availabilities && (
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Select Time Slot</label>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const dayOfWeek = new Date(bookingDate).getDay();
+                      const av = selectedTutor.availabilities.find((a: any) => a.dayOfWeek === dayOfWeek);
+                      if (!av) return <p className="text-[12px] text-gray-400">Not available on this day.</p>;
+
+                      const slots = [];
+                      const [startH, startM] = av.startTime.split(':').map(Number);
+                      const [endH, endM] = av.endTime.split(':').map(Number);
+                      
+                      let curH = startH;
+                      let curM = startM;
+                      
+                      while (curH * 60 + curM + 60 <= endH * 60 + endM) {
+                        const slotTime = `${curH.toString().padStart(2, '0')}:${curM.toString().padStart(2, '0')}`;
+                        slots.push(slotTime);
+                        curH += 1; // 1-hour slots
+                      }
+
+                      if (slots.length === 0) return <p className="text-[12px] text-gray-400">No 1-hour slots available.</p>;
+
+                      return slots.map(slot => (
+                        <button
+                          key={slot}
+                          onClick={() => setBookingTime(slot)}
+                          className={`px-3 py-1.5 rounded-lg text-[12px] font-bold border ${bookingTime === slot ? 'bg-[#F26522] text-white border-[#F26522]' : 'bg-white text-gray-700 border-gray-200 hover:border-[#F26522] hover:text-[#F26522]'}`}
+                        >
+                          {slot}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
 
             <button onClick={handleBookSlot} disabled={isBooking} className="w-full bg-gray-900 text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-black transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-gray-900/10">
@@ -743,9 +956,35 @@ export default function StudentDashboard() {
                       <div key={i} className={`flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
                         <div className={`px-4 py-2.5 rounded-2xl max-w-[75%] text-[13px] font-medium leading-relaxed ${msg.senderId === user.id ? 'bg-[#F26522] text-white rounded-br-sm shadow-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
                           {msg.message.startsWith('[FILE] ') ? (
-                            <a href={msg.message.replace('[FILE] ', '')} target="_blank" className="flex items-center gap-2 hover:underline">
-                              <FileText size={16} /> View Attachment
-                            </a>
+                            (() => {
+                              const rawUrl = msg.message.replace('[FILE] ', '');
+                              const fileUrl = rawUrl.replace('/raw/upload/fl_attachment/', '/raw/upload/');
+                              const lowerUrl = fileUrl.toLowerCase().split('?')[0].split('#')[0];
+                              const isImg = lowerUrl.endsWith('.png') || lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg') || lowerUrl.endsWith('.gif') || lowerUrl.endsWith('.webp') || lowerUrl.endsWith('.svg') || lowerUrl.endsWith('.bmp');
+                              if (isImg) {
+                                return (
+                                  <div>
+                                    <a href={fileUrl} target="_blank" rel="noreferrer">
+                                      <img src={fileUrl} alt="Chat attachment" className="max-w-[200px] rounded-lg mt-1 border border-white/20" />
+                                    </a>
+                                    <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-1.5 mt-1.5 text-[11px] opacity-80 hover:opacity-100 hover:underline transition">
+                                      <Download size={12} /> Download
+                                    </button>
+                                  </div>
+                                );
+                              } else {
+                                return (
+                                  <div className="flex flex-col gap-1.5">
+                                    <a href={fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:underline font-bold">
+                                      <FileText size={16} /> Open File
+                                    </a>
+                                    <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-2 hover:underline font-bold text-left opacity-90 hover:opacity-100 transition">
+                                      <Download size={16} /> Download File
+                                    </button>
+                                  </div>
+                                );
+                              }
+                            })()
                           ) : (
                             msg.message
                           )}
@@ -821,17 +1060,24 @@ export default function StudentDashboard() {
                     <td className="px-5 py-4">
                       <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-md border ${
                         b.status === 'CONFIRMED' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                        b.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-gray-50 text-gray-600 border-gray-200'
+                        b.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                        b.status === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-gray-50 text-gray-600 border-gray-200'
                       }`}>
                         {b.status}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="px-5 py-4 text-right flex items-center justify-end gap-2">
                       {b.status === 'CONFIRMED' && (
                         <button onClick={() => markCompleted(b.id)} className="text-[#F26522] text-[12px] font-bold hover:underline">Complete</button>
                       )}
                       {b.status === 'COMPLETED' && (
                         <button onClick={() => setRatingBooking(b)} className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-black transition shadow-sm">Rate</button>
+                      )}
+                      {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
+                        <button onClick={() => cancelBooking(b.id)} className="text-red-500 text-[12px] font-bold hover:underline">Cancel</button>
+                      )}
+                      {(b.status === 'CONFIRMED' || b.status === 'COMPLETED') && (
+                        <button onClick={() => setDisputeBooking(b)} className="text-amber-500 text-[12px] font-bold hover:underline">Dispute</button>
                       )}
                     </td>
                   </tr>
@@ -841,6 +1087,30 @@ export default function StudentDashboard() {
           </div>
         )}
       </div>
+
+      {disputeBooking && (
+        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button onClick={() => setDisputeBooking(null)} className="absolute top-4 right-4 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+              <X size={16} />
+            </button>
+            <h2 className="text-[18px] font-bold text-gray-900 mb-1">Open Dispute</h2>
+            <p className="text-[13px] text-gray-500 mb-4">Report an issue with this session.</p>
+            
+            <div className="space-y-4 mb-6">
+              <textarea 
+                placeholder="Please describe the issue..."
+                value={disputeReason}
+                onChange={e => setDisputeReason(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px] h-24 resize-none border border-gray-200"
+              ></textarea>
+            </div>
+            <button onClick={submitDispute} className="w-full bg-amber-500 text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-amber-600 transition shadow-md">
+              Submit Dispute
+            </button>
+          </div>
+        </div>
+      )}
 
       {ratingBooking && (
         <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">

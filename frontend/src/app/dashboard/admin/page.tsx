@@ -4,8 +4,11 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
-  Shield, CheckCircle, XCircle, Users, Activity, LogOut, ChevronRight, Check, CreditCard, AlertTriangle, PlayCircle
+  Shield, CheckCircle, XCircle, Users, Activity, LogOut, ChevronRight, Check, CreditCard, AlertTriangle, PlayCircle, BarChart2, Download, FileText
 } from "lucide-react";
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from "recharts";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -16,8 +19,39 @@ export default function AdminDashboard() {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [disputes, setDisputes] = useState<any[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState("");
+
+  // Force download helper for cross-origin files (Cloudinary)
+  const forceDownload = async (url: string) => {
+    const token = localStorage.getItem("token");
+    try {
+      setToastMessage("Downloading file...");
+      setTimeout(() => setToastMessage(""), 5000);
+      const res = await fetch(`http://localhost:4000/api/upload/download?url=${encodeURIComponent(url)}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      const urlParts = url.split('/');
+      a.download = decodeURIComponent(urlParts[urlParts.length - 1].split('?')[0]) || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      setToastMessage("File downloaded!");
+      setTimeout(() => setToastMessage(""), 3000);
+    } catch (err) {
+      console.error('Download error:', err);
+      window.open(url, '_blank');
+      setToastMessage("Opened file in new tab (download failed)");
+      setTimeout(() => setToastMessage(""), 3000);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -30,12 +64,13 @@ export default function AdminDashboard() {
         setAdminUser(data.user);
       } else return router.push("/login");
 
-      const [stuRes, tutRes, usersRes, payRes, dispRes] = await Promise.all([
+      const [stuRes, tutRes, usersRes, payRes, dispRes, analyticsRes] = await Promise.all([
         fetch("http://localhost:4000/api/admin/pending-students", { headers: { "Authorization": `Bearer ${token}` } }),
         fetch("http://localhost:4000/api/admin/pending-tutors", { headers: { "Authorization": `Bearer ${token}` } }),
         fetch("http://localhost:4000/api/admin/users", { headers: { "Authorization": `Bearer ${token}` } }),
         fetch("http://localhost:4000/api/admin/payments", { headers: { "Authorization": `Bearer ${token}` } }),
-        fetch("http://localhost:4000/api/admin/disputes", { headers: { "Authorization": `Bearer ${token}` } })
+        fetch("http://localhost:4000/api/admin/disputes", { headers: { "Authorization": `Bearer ${token}` } }),
+        fetch("http://localhost:4000/api/admin/analytics", { headers: { "Authorization": `Bearer ${token}` } })
       ]);
 
       if (stuRes.ok) setPendingStudents(await stuRes.json());
@@ -43,6 +78,7 @@ export default function AdminDashboard() {
       if (usersRes.ok) setAllUsers(await usersRes.json());
       if (payRes.ok) setPayments(await payRes.json());
       if (dispRes.ok) setDisputes(await dispRes.json());
+      if (analyticsRes.ok) setAnalyticsData(await analyticsRes.json());
     } catch (err) {
       console.error(err);
     } finally {
@@ -101,6 +137,7 @@ export default function AdminDashboard() {
         <NavItem icon={<Users />} label="User Management" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
         <NavItem icon={<CreditCard />} label="Payments & Refunds" active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} />
         <NavItem icon={<AlertTriangle />} label="Disputes" active={activeTab === 'disputes'} onClick={() => setActiveTab('disputes')} />
+        <NavItem icon={<BarChart2 />} label="Analytics" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} />
       </nav>
 
       <div className="p-3 border-t border-gray-100">
@@ -155,9 +192,14 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     {tutor.kycDocument && (
-                      <a href={tutor.kycDocument} target="_blank" className="text-[12px] font-bold text-[#F26522] hover:underline flex items-center gap-1">
-                        View KYC Document <ChevronRight size={12} />
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a href={tutor.kycDocument} target="_blank" className="text-[12px] font-bold text-[#F26522] hover:underline flex items-center gap-1">
+                          <FileText size={12} /> View KYC <ChevronRight size={12} />
+                        </a>
+                        <button onClick={() => forceDownload(tutor.kycDocument)} className="text-[12px] font-bold text-emerald-600 hover:underline flex items-center gap-1 transition">
+                          <Download size={12} /> Download
+                        </button>
+                      </div>
                     )}
                     <div className="flex gap-2 mt-2 pt-3 border-t border-gray-100">
                       <button onClick={() => handleVerifyTutor(tutor.id, 'APPROVED')} className="flex-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 py-2 rounded-lg text-[12px] font-bold transition flex items-center justify-center gap-1">
@@ -351,6 +393,143 @@ export default function AdminDashboard() {
     </div>
   );
 
+  const renderAnalyticsTab = () => {
+    if (!analyticsData) return (
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="mb-6">
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Analytics</h1>
+          <p className="text-[13px] text-gray-500 mt-0.5">Platform performance overview.</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
+          <BarChart2 size={32} className="text-gray-200 mx-auto mb-3" />
+          <p className="text-[13px] text-gray-400">Analytics data unavailable. Ensure the API endpoint is active.</p>
+        </div>
+      </div>
+    );
+
+    const chartData = Object.entries(analyticsData.monthlyData || {}).map(([month, data]: any) => ({
+      name: new Date(month + '-01').toLocaleString('default', { month: 'short', year: '2-digit' }),
+      bookings: data.bookings,
+      revenue: data.revenue
+    }));
+
+    const statCards = [
+      { label: 'Total Users', value: analyticsData.totalUsers ?? 0, bg: 'bg-orange-50', text: 'text-[#F26522]', border: 'border-orange-100', icon: <Users size={20} className="text-[#F26522]" /> },
+      { label: 'Students', value: analyticsData.totalStudents ?? 0, bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', icon: <CheckCircle size={20} className="text-blue-500" /> },
+      { label: 'Tutors', value: analyticsData.totalTutors ?? 0, bg: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-100', icon: <Activity size={20} className="text-violet-500" /> },
+      { label: 'Total Revenue', value: `$${(analyticsData.totalRevenue ?? 0).toLocaleString()}`, bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100', icon: <CreditCard size={20} className="text-emerald-500" /> },
+    ];
+
+    return (
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="mb-6">
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Analytics</h1>
+          <p className="text-[13px] text-gray-500 mt-0.5">Platform performance overview and trends.</p>
+        </div>
+
+        {/* Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {statCards.map((card) => (
+            <div key={card.label} className={`bg-white rounded-2xl border ${card.border} shadow-sm p-5 flex flex-col gap-3`}>
+              <div className={`w-10 h-10 ${card.bg} rounded-xl flex items-center justify-center`}>
+                {card.icon}
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">{card.label}</p>
+                <p className={`text-2xl font-bold ${card.text} mt-0.5`}>{card.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Monthly Bookings */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className="mb-4">
+              <h2 className="text-[15px] font-bold text-gray-900">Monthly Bookings</h2>
+              <p className="text-[12px] text-gray-400 mt-0.5">Total sessions booked per month</p>
+            </div>
+            {chartData.length === 0 ? (
+              <div className="h-[200px] flex items-center justify-center text-gray-300 text-sm">No data available</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+                    cursor={{ fill: '#fef3ec' }}
+                  />
+                  <Bar dataKey="bookings" name="Bookings" fill="#F26522" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Monthly Revenue */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className="mb-4">
+              <h2 className="text-[15px] font-bold text-gray-900">Monthly Revenue</h2>
+              <p className="text-[12px] text-gray-400 mt-0.5">Total revenue collected per month (USD)</p>
+            </div>
+            {chartData.length === 0 ? (
+              <div className="h-[200px] flex items-center justify-center text-gray-300 text-sm">No data available</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+                    formatter={(value: any) => [`$${value}`, 'Revenue']}
+                    cursor={{ stroke: '#F26522', strokeWidth: 1, strokeDasharray: '4 4' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Revenue"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    dot={{ fill: '#10b981', r: 4, strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: '#10b981', strokeWidth: 0 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Summary Row */}
+        <div className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-[15px] font-bold text-gray-900 mb-4">Platform Summary</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-gray-900">{analyticsData.totalBookings ?? 0}</p>
+              <p className="text-[12px] text-gray-400 mt-1 font-semibold">Total Bookings</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-[#F26522]">{analyticsData.totalTutors ?? 0}</p>
+              <p className="text-[12px] text-gray-400 mt-1 font-semibold">Active Tutors</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-blue-500">{analyticsData.totalStudents ?? 0}</p>
+              <p className="text-[12px] text-gray-400 mt-1 font-semibold">Enrolled Students</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-emerald-500">
+                {analyticsData.totalBookings > 0 ? `$${(analyticsData.totalRevenue / analyticsData.totalBookings).toFixed(0)}` : '$0'}
+              </p>
+              <p className="text-[12px] text-gray-400 mt-1 font-semibold">Avg. Revenue / Booking</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex font-sans selection:bg-orange-100 selection:text-orange-900">
       {renderSidebar()}
@@ -362,6 +541,7 @@ export default function AdminDashboard() {
             {activeTab === 'users' && renderUsersTab()}
             {activeTab === 'payments' && renderPaymentsTab()}
             {activeTab === 'disputes' && renderDisputesTab()}
+            {activeTab === 'analytics' && renderAnalyticsTab()}
           </div>
         </main>
       </div>

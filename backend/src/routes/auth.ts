@@ -118,6 +118,7 @@ router.post('/register', async (req, res) => {
       html: htmlContent
     });
     console.log("OTP Email sent. Preview URL: %s", nodemailer.getTestMessageUrl(info));
+    console.log(`[DEV] OTP for ${email}: ${otp}`);
 
     res.status(201).json({ message: 'User registered successfully. OTP sent.', email });
   } catch (error) {
@@ -133,8 +134,9 @@ router.post('/verify-otp', async (req, res) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.isVerified) return res.status(400).json({ error: 'User already verified' });
-    if (user.otp !== otp) return res.status(400).json({ error: 'Invalid OTP' });
-    if (!user.otpExpiry || user.otpExpiry < new Date()) return res.status(400).json({ error: 'OTP expired' });
+    if (!user.otp) return res.status(400).json({ error: 'No OTP found. Please request a new one.' });
+    if (user.otp !== otp) return res.status(400).json({ error: 'Invalid OTP. Please check and try again.' });
+    if (!user.otpExpiry || user.otpExpiry < new Date()) return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
 
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
@@ -155,6 +157,62 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
+router.post('/resend-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.isVerified) return res.status(400).json({ error: 'User is already verified' });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { otp, otpExpiry }
+    });
+
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #f0f0f0; border-radius: 12px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h1 style="color: #F26522; margin: 0; font-size: 28px; font-weight: 800;">Educator Hub</h1>
+          <p style="color: #666666; font-size: 14px; margin-top: 5px;">Your New Verification Code</p>
+        </div>
+        <hr style="border: none; border-top: 1px solid #f0f0f0; margin-bottom: 30px;" />
+        <div style="font-size: 16px; color: #333333; line-height: 1.6; margin-bottom: 30px;">
+          <p>Hello,</p>
+          <p>Here is your new one-time password (OTP) for <b>Educator Hub</b>:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 5px; color: #F26522; background-color: #FFF5F0; padding: 12px 30px; border-radius: 8px; border: 1px solid #FFD8C2; display: inline-block;">${otp}</span>
+          </div>
+          <p style="font-size: 13px; color: #666666;">This code is valid for <b>10 minutes</b>. If you did not request this code, you can safely ignore this email.</p>
+        </div>
+        <hr style="border: none; border-top: 1px solid #f0f0f0; margin-top: 30px; margin-bottom: 20px;" />
+        <div style="text-align: center; font-size: 12px; color: #999999;">
+          <p>&copy; 2026 Educator Hub. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const mailTransporter = await getTransporter();
+    const info = await mailTransporter.sendMail({
+      from: `"Educator Hub" <${process.env.SMTP_USER || 'no-reply@marketplace.com'}>`,
+      to: email,
+      subject: "Your New OTP - Educator Hub",
+      text: `Your new OTP is ${otp}. It expires in 10 minutes.`,
+      html: htmlContent
+    });
+    console.log("Resend OTP Email sent. Preview URL: %s", nodemailer.getTestMessageUrl(info));
+    console.log(`[DEV] Resent OTP for ${email}: ${otp}`);
+
+    res.json({ message: 'New OTP sent successfully.' });
+  } catch (error) {
+    console.error('Resend OTP Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -170,6 +228,36 @@ router.post('/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ error: 'Invalid credentials' });
+    }
+
+    // If user hasn't verified their email, resend OTP and ask them to verify
+    if (!user.isVerified) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { otp, otpExpiry }
+      });
+
+      try {
+        const mailTransporter = await getTransporter();
+        await mailTransporter.sendMail({
+          from: `"Educator Hub" <${process.env.SMTP_USER || 'no-reply@marketplace.com'}>`,
+          to: email,
+          subject: "Verify Your Account - Educator Hub OTP",
+          text: `Your OTP for verification is ${otp}. It expires in 10 minutes.`,
+        });
+        console.log(`[DEV] Login-resent OTP for ${email}: ${otp}`);
+      } catch (mailErr) {
+        console.error('Failed to send OTP email on login:', mailErr);
+      }
+
+      return res.status(403).json({ 
+        error: 'Email not verified. A new OTP has been sent to your email.',
+        requiresOtp: true,
+        email: user.email
+      });
     }
 
     const token = jwt.sign(
@@ -244,17 +332,22 @@ router.post('/submit-kyc', authenticate, async (req: any, res) => {
       return res.status(403).json({ error: 'Only tutors can submit KYC' });
     }
 
+    if (!kycDocument) {
+      return res.status(400).json({ error: 'KYC ID Proof Document is compulsory.' });
+    }
+
+    const docUrlLower = kycDocument.toLowerCase();
+    if (!docUrlLower.endsWith('.pdf') && !docUrlLower.includes('.pdf?')) {
+      return res.status(400).json({ error: 'Only PDF files are accepted for KYC verification.' });
+    }
+
     const updateData: any = {
       phone,
       subjects,
       hourlyRate,
+      kycDocument,
       kycStatus: 'PENDING'
     };
-
-    // Only update kycDocument if one was provided
-    if (kycDocument) {
-      updateData.kycDocument = kycDocument;
-    }
 
     const updatedProfile = await prisma.tutorProfile.update({
       where: { userId: req.user.id },

@@ -17,6 +17,7 @@ export default function AdminDashboard() {
   const [pendingStudents, setPendingStudents] = useState<any[]>([]);
   const [pendingTutors, setPendingTutors] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("students");
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -26,7 +27,7 @@ export default function AdminDashboard() {
     }
     const parsed = JSON.parse(userData);
     if (parsed.role !== "ADMIN") {
-      alert("Unauthorized Access!");
+      localStorage.setItem("toastMessage", JSON.stringify({ message: "Unauthorized access denied.", type: "error" }));
       router.push("/login");
       return;
     }
@@ -37,6 +38,7 @@ export default function AdminDashboard() {
   }, [router]);
 
   const fetchPendingUsers = async () => {
+    setIsLoadingData(true);
     const token = localStorage.getItem("token");
     try {
       const [sRes, tRes] = await Promise.all([
@@ -47,6 +49,8 @@ export default function AdminDashboard() {
       if (tRes.ok) setPendingTutors(await tRes.json());
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -102,7 +106,38 @@ export default function AdminDashboard() {
     }
   };
 
-  if (!admin) return <div className="min-h-screen flex items-center justify-center bg-[#111] text-gray-400 text-sm">Loading admin systems...</div>;
+  if (!admin || isLoadingData) return (
+    <div className="min-h-screen flex bg-gray-50 font-sans">
+      {/* Sidebar Skeleton */}
+      <div className="w-20 md:w-64 bg-gray-900 flex flex-col h-screen p-4 space-y-4">
+        <div className="h-10 bg-gray-800 rounded-xl animate-pulse"></div>
+        <div className="flex-1 space-y-2 pt-6">
+          <div className="h-10 bg-gray-800 rounded-xl animate-pulse"></div>
+          <div className="h-10 bg-gray-800 rounded-xl animate-pulse"></div>
+        </div>
+      </div>
+      {/* Main Content Skeleton */}
+      <div className="flex-1 flex flex-col ml-20 md:ml-64">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-end px-8">
+          <div className="w-24 h-8 bg-gray-100 rounded-xl animate-pulse"></div>
+        </header>
+        <main className="flex-1 p-8 space-y-6">
+          <div className="max-w-5xl space-y-6">
+            <div className="space-y-2">
+              <div className="h-6 w-48 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-32 bg-gray-100 rounded animate-pulse"></div>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+              <div className="h-8 bg-gray-100 rounded-xl animate-pulse w-full"></div>
+              <div className="h-12 bg-gray-50 rounded-xl animate-pulse w-full"></div>
+              <div className="h-12 bg-gray-50 rounded-xl animate-pulse w-full"></div>
+              <div className="h-12 bg-gray-50 rounded-xl animate-pulse w-full"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 
   const renderSidebar = () => (
     <div className="w-20 md:w-64 bg-gray-900 border-r border-gray-800 flex flex-col h-screen fixed left-0 top-0 text-white transition-all z-20 shadow-2xl shadow-gray-900/50">

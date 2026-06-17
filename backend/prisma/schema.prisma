@@ -63,6 +63,20 @@ model TutorProfile {
   subjects    String[]
   hourlyRate  Float?
   user        User     @relation(fields: [userId], references: [id])
+  availabilities Availability[]
+}
+
+model Availability {
+  id          String   @id @default(uuid())
+  tutorId     String
+  tutorProfile TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int      // 0 = Sunday, 1 = Monday, etc.
+  startTime   String   // "HH:mm" e.g., "09:00"
+  endTime     String   // "HH:mm" e.g., "17:00"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tutorId, dayOfWeek])
 }
 
 model Booking {

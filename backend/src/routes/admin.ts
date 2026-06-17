@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../index';
 import { authenticate, authorize } from '../middleware/auth';
+import { sendKycStatusEmail } from '../utils/mailer';
 
 const router = Router();
 
@@ -45,6 +46,12 @@ router.post('/verify-tutor', authenticate, authorize(['ADMIN']), async (req, res
         where: { id: updatedProfile.userId },
         data: { isVerified: true },
       });
+    }
+
+    // Fire-and-forget KYC status email to tutor
+    const tutorUser = await prisma.user.findUnique({ where: { id: updatedProfile.userId } });
+    if (tutorUser) {
+      sendKycStatusEmail(tutorUser.email, tutorUser.name, status as 'APPROVED' | 'REJECTED');
     }
 
     res.json({ message: `Tutor ${status}`, profile: updatedProfile });
@@ -167,6 +174,45 @@ router.post('/resolve-dispute', authenticate, authorize(['ADMIN']), async (req, 
     });
     res.json({ message: 'Dispute resolved', dispute: updatedDispute });
   } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Analytics
+router.get('/analytics', authenticate, authorize(['ADMIN']), async (req, res) => {
+  try {
+    const totalUsers = await prisma.user.count();
+    const totalStudents = await prisma.user.count({ where: { role: 'STUDENT' } });
+    const totalTutors = await prisma.user.count({ where: { role: 'TUTOR' } });
+    const totalBookings = await prisma.booking.count();
+
+    // Revenue: sum of amount for PAID bookings
+    const revenueResult = await prisma.booking.aggregate({
+      _sum: { amount: true },
+      where: { paymentStatus: 'PAID' }
+    });
+    const totalRevenue = revenueResult._sum.amount || 0;
+
+    // Bookings per month (last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const recentBookings = await prisma.booking.findMany({
+      where: { createdAt: { gte: sixMonthsAgo } },
+      select: { createdAt: true, amount: true, paymentStatus: true }
+    });
+
+    // Group by month
+    const monthlyData: Record<string, { bookings: number; revenue: number }> = {};
+    recentBookings.forEach(b => {
+      const month = b.createdAt.toISOString().substring(0, 7); // YYYY-MM
+      if (!monthlyData[month]) monthlyData[month] = { bookings: 0, revenue: 0 };
+      monthlyData[month].bookings++;
+      if (b.paymentStatus === 'PAID') monthlyData[month].revenue += b.amount;
+    });
+
+    res.json({ totalUsers, totalStudents, totalTutors, totalBookings, totalRevenue, monthlyData });
+  } catch (error) {
+    console.error('Analytics error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

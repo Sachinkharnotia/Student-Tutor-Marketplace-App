@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
@@ -15,6 +17,8 @@ import paymentRoutes from './routes/payment';
 import marketplaceRoutes from './routes/marketplace';
 import bookingRoutes from './routes/booking';
 import reviewRoutes from './routes/review';
+import availabilityRoutes from './routes/availability';
+import disputeRoutes from './routes/dispute';
 
 const app = express();
 const httpServer = createServer(app);
@@ -27,8 +31,18 @@ const io = new Server(httpServer, {
 
 export const prisma = new PrismaClient();
 
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+app.use('/api/', apiLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -39,6 +53,8 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/review', reviewRoutes);
+app.use('/api/availability', availabilityRoutes);
+app.use('/api/dispute', disputeRoutes);
 
 // Basic health check
 app.get('/health', (req, res) => {
