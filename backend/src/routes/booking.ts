@@ -7,6 +7,22 @@ import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from '../u
 
 const router = Router();
 
+const getPagination = (query: any) => {
+  const page = Math.max(parseInt(String(query.page || '1'), 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(String(query.limit || '10'), 10) || 10, 1), 100);
+  return { page, limit, skip: (page - 1) * limit };
+};
+
+const paginatedResponse = (data: any[], page: number, limit: number, total: number) => ({
+  data,
+  pagination: {
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit)
+  }
+});
+
 // Lazy-init so dotenv.config() has run before we read process.env
 let razorpay: Razorpay;
 function getRazorpay() {
@@ -212,14 +228,20 @@ router.post('/verify-payment', authenticate, async (req, res) => {
 router.get('/my-bookings', authenticate, authorize(['STUDENT']), async (req: any, res) => {
   try {
     const studentId = req.user.id;
+    const { page, limit, skip } = getPagination(req.query);
     console.log(`API [GET /my-bookings] called by Student ID: ${studentId}`);
-    const bookings = await prisma.booking.findMany({
-      where: { studentId },
-      include: { tutor: { select: { name: true, email: true } } },
-      orderBy: { startTime: 'asc' }
-    });
+    const [total, bookings] = await prisma.$transaction([
+      prisma.booking.count({ where: { studentId } }),
+      prisma.booking.findMany({
+        where: { studentId },
+        skip,
+        take: limit,
+        include: { tutor: { select: { name: true, email: true } } },
+        orderBy: { startTime: 'asc' }
+      })
+    ]);
     console.log(`API [GET /my-bookings] found ${bookings.length} bookings for Student ID: ${studentId}`);
-    res.json(bookings);
+    res.json(paginatedResponse(bookings, page, limit, total));
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -228,15 +250,52 @@ router.get('/my-bookings', authenticate, authorize(['STUDENT']), async (req: any
 // Get tutor bookings
 router.get('/tutor-bookings', authenticate, authorize(['TUTOR']), async (req: any, res) => {
   try {
+    const { page, limit, skip } = getPagination(req.query);
     console.log(`API [GET /tutor-bookings] called by Tutor ID: ${req.user.id}`);
-    const bookings = await prisma.booking.findMany({
-      where: { tutorId: req.user.id },
-      include: { student: { select: { name: true, email: true } } },
-      orderBy: { startTime: 'asc' }
-    });
+    const [total, bookings] = await prisma.$transaction([
+      prisma.booking.count({ where: { tutorId: req.user.id } }),
+      prisma.booking.findMany({
+        where: { tutorId: req.user.id },
+        skip,
+        take: limit,
+        include: { student: { select: { name: true, email: true } } },
+        orderBy: { startTime: 'asc' }
+      })
+    ]);
     console.log(`API [GET /tutor-bookings] found ${bookings.length} bookings for Tutor ID: ${req.user.id}`);
-    res.json(bookings);
+    res.json(paginatedResponse(bookings, page, limit, total));
   } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/', authenticate, async (req: any, res) => {
+  try {
+    const { page, limit, skip } = getPagination(req.query);
+    const where = req.user.role === 'TUTOR'
+      ? { tutorId: req.user.id }
+      : req.user.role === 'STUDENT'
+        ? { studentId: req.user.id }
+        : {};
+
+    const include = req.user.role === 'TUTOR'
+      ? { student: { select: { name: true, email: true } } }
+      : { tutor: { select: { name: true, email: true } } };
+
+    const [total, bookings] = await prisma.$transaction([
+      prisma.booking.count({ where }),
+      prisma.booking.findMany({
+        where,
+        skip,
+        take: limit,
+        include,
+        orderBy: { startTime: 'asc' }
+      })
+    ]);
+
+    res.json(paginatedResponse(bookings, page, limit, total));
+  } catch (error) {
+    console.error("Fetch bookings error:", error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -66,16 +66,53 @@ io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
   
   // Join a booking-specific room
-  socket.on('join_room', (bookingId) => {
+  socket.on('join_room', async (bookingId) => {
     socket.join(bookingId);
     console.log(`User with ID: ${socket.id} joined room: ${bookingId}`);
+    try {
+      const messages = await prisma.message.findMany({
+        where: { roomId: bookingId },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      socket.emit('room_history', {
+        roomId: bookingId,
+        messages: messages.map((message) => ({
+          ...message,
+          room: message.roomId,
+          message: message.content,
+        })),
+      });
+    } catch (error) {
+      console.error('Failed to load chat history:', error);
+      socket.emit('chat_error', { error: 'Failed to load chat history' });
+    }
   });
 
   // Send message to a specific room
-  socket.on('send_message', (data) => {
+  socket.on('send_message', async (data) => {
     const targetRoom = data.room || data.bookingId;
-    if (targetRoom) {
-      socket.to(targetRoom).emit('receive_message', data);
+    const content = data.content || data.message;
+
+    if (targetRoom && data.senderId && content) {
+      try {
+        const savedMessage = await prisma.message.create({
+          data: {
+            roomId: targetRoom,
+            senderId: data.senderId,
+            content,
+          },
+        });
+
+        io.to(targetRoom).emit('receive_message', {
+          ...savedMessage,
+          room: savedMessage.roomId,
+          message: savedMessage.content,
+        });
+      } catch (error) {
+        console.error('Failed to save chat message:', error);
+        socket.emit('chat_error', { error: 'Failed to send message' });
+      }
     }
   });
 

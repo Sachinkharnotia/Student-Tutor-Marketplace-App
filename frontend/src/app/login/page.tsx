@@ -336,6 +336,11 @@ export default function Login() {
                   >
                     {isLoading ? "Authenticating..." : "Continue"}
                   </button>
+                  <div className="text-right">
+                    <Link href="/forgot-password" className="text-[12px] font-bold text-orange-600 hover:underline">
+                      Forgot password?
+                    </Link>
+                  </div>
                 </form>
               )}
 

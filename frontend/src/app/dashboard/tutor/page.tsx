@@ -100,6 +100,9 @@ export default function TutorDashboard() {
     newSocket.on("receive_message", (data) => {
       setChatMessages((prev) => [...prev, data]);
     });
+    newSocket.on("room_history", (data) => {
+      setChatMessages(data.messages || []);
+    });
     return () => { newSocket.disconnect(); };
   }, [router]);
 
@@ -126,7 +129,7 @@ export default function TutorDashboard() {
       const bookingsRes = await fetch("http://localhost:4000/api/booking/tutor-bookings", { headers: { "Authorization": `Bearer ${token}` } });
       if (bookingsRes.ok) {
         const bookingsData = await bookingsRes.json();
-        setBookings(bookingsData);
+        setBookings(Array.isArray(bookingsData) ? bookingsData : bookingsData.data || []);
       }
 
       const tutorProfileId = data?.user?.tutorProfile?.id || user?.tutorProfile?.id;
@@ -245,9 +248,8 @@ export default function TutorDashboard() {
 
   const sendMessage = () => {
     if (!chatInput.trim() || !activeChat || !socket) return;
-    const messageData = { room: activeChat.id, senderId: user.id, message: chatInput };
+    const messageData = { room: activeChat.id, senderId: user.id, content: chatInput, message: chatInput };
     socket.emit("send_message", messageData);
-    setChatMessages((prev) => [...prev, messageData]);
     setChatInput("");
   };
 
@@ -268,9 +270,8 @@ export default function TutorDashboard() {
       });
       if (res.ok) {
         const data = await res.json();
-        const messageData = { room: activeChat.id, senderId: user.id, message: `[FILE] ${data.url}` };
+        const messageData = { room: activeChat.id, senderId: user.id, content: `[FILE] ${data.url}`, message: `[FILE] ${data.url}` };
         socket.emit("send_message", messageData);
-        setChatMessages((prev) => [...prev, messageData]);
         setToastMessage("File sent!");
         setTimeout(() => setToastMessage(""), 3000);
       } else {

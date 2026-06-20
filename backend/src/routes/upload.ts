@@ -4,7 +4,7 @@ import multerS3 from 'multer-s3';
 import { S3Client } from '@aws-sdk/client-s3';
 import { authenticate } from '../middleware/auth';
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
+const CloudinaryStorage = require('multer-storage-cloudinary');
 
 const router = Router();
 

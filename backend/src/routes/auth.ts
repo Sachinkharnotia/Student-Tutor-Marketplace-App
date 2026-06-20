@@ -213,6 +213,89 @@ router.post('/resend-otp', async (req, res) => {
   }
 });
 
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetOtpHash = await bcrypt.hash(otp, 10);
+    const resetOtpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetOtpHash, resetOtpExpiry },
+    });
+
+    const mailTransporter = await getTransporter();
+    const info = await mailTransporter.sendMail({
+      from: `"Educator Hub" <${process.env.SMTP_USER || 'no-reply@marketplace.com'}>`,
+      to: email,
+      subject: 'Reset Your Password - Educator Hub OTP',
+      text: `Your password reset OTP is ${otp}. It expires in 10 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #f0f0f0; border-radius: 12px;">
+          <h1 style="color:#F26522;margin:0 0 8px;">Educator Hub</h1>
+          <p style="color:#333;">Use this one-time password to reset your account password.</p>
+          <div style="font-size:30px;font-weight:800;letter-spacing:5px;color:#F26522;background:#FFF5F0;padding:12px 24px;border-radius:8px;text-align:center;margin:24px 0;">${otp}</div>
+          <p style="color:#666;font-size:13px;">This code expires in 10 minutes. If you did not request it, ignore this email.</p>
+        </div>
+      `,
+    });
+
+    console.log("Password reset OTP Email sent. Preview URL: %s", nodemailer.getTestMessageUrl(info));
+    console.log(`[DEV] Password reset OTP for ${email}: ${otp}`);
+
+    res.json({ message: 'Password reset OTP sent successfully.' });
+  } catch (error) {
+    console.error('Forgot Password Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ error: 'Email, OTP, and new password are required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || !user.resetOtpHash || !user.resetOtpExpiry) {
+      return res.status(400).json({ error: 'Invalid or expired reset request' });
+    }
+
+    if (user.resetOtpExpiry < new Date()) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { resetOtpHash: null, resetOtpExpiry: null },
+      });
+      return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+    }
+
+    const isOtpValid = await bcrypt.compare(String(otp).trim(), user.resetOtpHash);
+    if (!isOtpValid) return res.status(400).json({ error: 'Invalid OTP. Please check and try again.' });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetOtpHash: null,
+        resetOtpExpiry: null,
+      },
+    });
+
+    res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Reset Password Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;

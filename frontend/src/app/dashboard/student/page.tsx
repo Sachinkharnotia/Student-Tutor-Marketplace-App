@@ -145,6 +145,10 @@ export default function StudentDashboard() {
       setChatMessages((prev) => [...prev, data]);
     });
 
+    newSocket.on("room_history", (data) => {
+      setChatMessages(data.messages || []);
+    });
+
     // Load Razorpay Script
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -171,7 +175,8 @@ export default function StudentDashboard() {
         headers: { "Authorization": `Bearer ${token}` } 
       });
       if (res.ok) {
-        setTutors(await res.json());
+        const data = await res.json();
+        setTutors(Array.isArray(data) ? data : data.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -210,7 +215,10 @@ export default function StudentDashboard() {
         fetch("http://localhost:4000/api/auth/me", { headers: { "Authorization": `Bearer ${token}` } })
       ]);
       
-      if (resBookings.ok) setBookings(await resBookings.json());
+      if (resBookings.ok) {
+        const bookingsData = await resBookings.json();
+        setBookings(Array.isArray(bookingsData) ? bookingsData : bookingsData.data || []);
+      }
       if (resMe.ok) {
         const meData = await resMe.json();
         setUser(meData.user);
@@ -390,9 +398,8 @@ export default function StudentDashboard() {
 
   const sendMessage = () => {
     if (!chatInput.trim() || !activeChat || !socket) return;
-    const messageData = { room: activeChat.id, senderId: user.id, message: chatInput };
+    const messageData = { room: activeChat.id, senderId: user.id, content: chatInput, message: chatInput };
     socket.emit("send_message", messageData);
-    setChatMessages((prev) => [...prev, messageData]);
     setChatInput("");
   };
 
@@ -413,9 +420,8 @@ export default function StudentDashboard() {
       });
       if (res.ok) {
         const data = await res.json();
-        const messageData = { room: activeChat.id, senderId: user.id, message: `[FILE] ${data.url}` };
+        const messageData = { room: activeChat.id, senderId: user.id, content: `[FILE] ${data.url}`, message: `[FILE] ${data.url}` };
         socket.emit("send_message", messageData);
-        setChatMessages((prev) => [...prev, messageData]);
         showToast("File sent!", "success");
       } else {
         showToast("Upload failed", "error");

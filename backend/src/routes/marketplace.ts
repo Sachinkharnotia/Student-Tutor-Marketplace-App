@@ -8,6 +8,9 @@ const router = Router();
 router.get('/tutors', authenticate, async (req, res) => {
   try {
     const { search, subject, minPrice, maxPrice, sortBy } = req.query;
+    const page = Math.max(parseInt(String(req.query.page || '1'), 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '10'), 10) || 10, 1), 100);
+    const skip = (page - 1) * limit;
 
     const whereClause: any = {
       kycStatus: 'APPROVED',
@@ -32,24 +35,29 @@ router.get('/tutors', authenticate, async (req, res) => {
     if (sortBy === 'price_asc') orderByClause = { hourlyRate: 'asc' };
     else if (sortBy === 'price_desc') orderByClause = { hourlyRate: 'desc' };
 
-    const tutors = await prisma.tutorProfile.findMany({
-      where: whereClause,
-      orderBy: Object.keys(orderByClause).length ? orderByClause : undefined,
-      include: {
-        availabilities: true,
-        user: {
-          select: {
-            name: true,
-            email: true,
-            bookingsAsTutor: {
-              select: {
-                review: true
+    const [total, tutors] = await prisma.$transaction([
+      prisma.tutorProfile.count({ where: whereClause }),
+      prisma.tutorProfile.findMany({
+        where: whereClause,
+        skip,
+        take: limit,
+        orderBy: Object.keys(orderByClause).length ? orderByClause : undefined,
+        include: {
+          availabilities: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+              bookingsAsTutor: {
+                select: {
+                  review: true
+                }
               }
             }
           }
         }
-      }
-    });
+      })
+    ]);
 
     // If sorting by rating, we have to calculate it in memory
     let processedTutors = tutors.map(tutor => {
@@ -69,7 +77,15 @@ router.get('/tutors', authenticate, async (req, res) => {
       processedTutors.sort((a, b) => b.avgRating - a.avgRating);
     }
 
-    res.json(processedTutors);
+    res.json({
+      data: processedTutors,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error("Fetch tutors error:", error);
     res.status(500).json({ error: 'Internal server error' });
