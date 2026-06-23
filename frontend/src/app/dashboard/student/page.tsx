@@ -72,6 +72,8 @@ export default function StudentDashboard() {
     }
   };
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isFetchingTutors, setIsFetchingTutors] = useState(false);
+  const [isFetchingBookings, setIsFetchingBookings] = useState(false);
   // Filters
   const [filterSearch, setFilterSearch] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
@@ -230,6 +232,7 @@ export default function StudentDashboard() {
   }, [router]);
   const fetchTutors = async (pageVal = tutorsPage) => {
     const token = localStorage.getItem("token");
+    setIsFetchingTutors(true);
     try {
       const params = new URLSearchParams();
       if (filterSearch) params.append("search", filterSearch);
@@ -260,11 +263,14 @@ export default function StudentDashboard() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsFetchingTutors(false);
     }
   };
 
   const fetchBookings = async (pageVal = bookingsPage) => {
     const token = localStorage.getItem("token");
+    setIsFetchingBookings(true);
     try {
       const resBookings = await fetch(
         `http://localhost:4000/api/booking/my-bookings?page=${pageVal}&limit=${bookingsLimit}`,
@@ -302,6 +308,8 @@ export default function StudentDashboard() {
       }
     } catch (err) {
       console.error("Failed to fetch bookings:", err);
+    } finally {
+      setIsFetchingBookings(false);
     }
   };
   const submitDispute = async () => {
@@ -1107,6 +1115,7 @@ export default function StudentDashboard() {
               .length.toString()}
             icon={<Calendar size={16} className="text-[#F26522]" />}
             bg="bg-orange-50"
+            loading={isFetchingBookings}
           />
           <StatCard
             title="Hours"
@@ -1115,6 +1124,7 @@ export default function StudentDashboard() {
               .length.toString()}
             icon={<Clock size={16} className="text-blue-500" />}
             bg="bg-blue-50"
+            loading={isFetchingBookings}
           />
           <StatCard
             title="Completed"
@@ -1124,6 +1134,7 @@ export default function StudentDashboard() {
             icon={<Star size={16} className="text-emerald-500" />}
             bg="bg-emerald-50"
             className="col-span-2 md:col-span-1"
+            loading={isFetchingBookings}
           />
         </div>
       </div>
@@ -1208,6 +1219,34 @@ export default function StudentDashboard() {
             Your profile is currently pending Admin approval. You must be
             verified before you can browse and book tutors.
           </p>
+        </div>
+      ) : isFetchingTutors ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col shadow-sm animate-pulse"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex gap-3 items-center">
+                  <div className="w-10 h-10 rounded-full bg-gray-200"></div>
+                  <div className="space-y-1.5">
+                    <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                    <div className="h-3 w-16 bg-gray-100 rounded"></div>
+                  </div>
+                </div>
+                <div className="h-5 w-10 bg-gray-100 rounded"></div>
+              </div>
+              <div className="space-y-2 mb-4 flex-1">
+                <div className="h-3 w-full bg-gray-100 rounded"></div>
+                <div className="h-3 w-5/6 bg-gray-100 rounded"></div>
+              </div>
+              <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                <div className="h-6 w-12 bg-gray-200 rounded"></div>
+                <div className="h-8 w-16 bg-gray-200 rounded-lg"></div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : tutors.length === 0 ? (
         <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center text-gray-400 text-[13px] shadow-sm">
@@ -1662,69 +1701,88 @@ export default function StudentDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {bookings.map((b) => (
-                  <tr
-                    key={b.id}
-                    className="hover:bg-gray-50/50 transition-colors group"
-                  >
-                    <td className="px-5 py-4 font-bold text-[13px] text-gray-900">
-                      {b.tutor.name}
-                    </td>
-                    <td className="px-5 py-4 text-[13px] text-gray-600 font-medium">
-                      {new Date(b.startTime).toLocaleString()}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-md border ${
-                          b.status === "CONFIRMED"
-                            ? "bg-blue-50 text-blue-700 border-blue-100"
-                            : b.status === "COMPLETED"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                              : b.status === "CANCELLED"
-                                ? "bg-red-50 text-red-700 border-red-100"
-                                : "bg-gray-50 text-gray-600 border-gray-200"
-                        }`}
-                      >
-                        {b.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right flex items-center justify-end gap-2">
-                      {b.status === "CONFIRMED" && (
-                        <button
-                          onClick={() => markCompleted(b.id)}
-                          className="text-[#F26522] text-[12px] font-bold hover:underline"
+                {isFetchingBookings ? (
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse">
+                      <td className="px-5 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-4 bg-gray-100 rounded w-32"></div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-5 bg-gray-50 rounded-md w-16"></div>
+                      </td>
+                      <td className="px-5 py-4 text-right flex justify-end gap-2">
+                        <div className="h-8 bg-gray-100 rounded-lg w-16"></div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  bookings.map((b) => (
+                    <tr
+                      key={b.id}
+                      className="hover:bg-gray-50/50 transition-colors group"
+                    >
+                      <td className="px-5 py-4 font-bold text-[13px] text-gray-900">
+                        {b.tutor.name}
+                      </td>
+                      <td className="px-5 py-4 text-[13px] text-gray-600 font-medium">
+                        {new Date(b.startTime).toLocaleString()}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-md border ${
+                            b.status === "CONFIRMED"
+                              ? "bg-blue-50 text-blue-700 border-blue-100"
+                              : b.status === "COMPLETED"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                : b.status === "CANCELLED"
+                                  ? "bg-red-50 text-red-700 border-red-100"
+                                  : "bg-gray-50 text-gray-600 border-gray-200"
+                          }`}
                         >
-                          Complete
-                        </button>
-                      )}
-                      {b.status === "COMPLETED" && (
-                        <button
-                          onClick={() => setRatingBooking(b)}
-                          className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-black transition shadow-sm"
-                        >
-                          Rate
-                        </button>
-                      )}
-                      {(b.status === "PENDING" || b.status === "CONFIRMED") && (
-                        <button
-                          onClick={() => cancelBooking(b.id)}
-                          className="text-red-500 text-[12px] font-bold hover:underline"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                      {(b.status === "CONFIRMED" ||
-                        b.status === "COMPLETED") && (
-                        <button
-                          onClick={() => setDisputeBooking(b)}
-                          className="text-amber-500 text-[12px] font-bold hover:underline"
-                        >
-                          Dispute
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                          {b.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right flex items-center justify-end gap-2">
+                        {b.status === "CONFIRMED" && (
+                          <button
+                            onClick={() => markCompleted(b.id)}
+                            className="text-[#F26522] text-[12px] font-bold hover:underline"
+                          >
+                            Complete
+                          </button>
+                        )}
+                        {b.status === "COMPLETED" && (
+                          <button
+                            onClick={() => setRatingBooking(b)}
+                            className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-black transition shadow-sm"
+                          >
+                            Rate
+                          </button>
+                        )}
+                        {(b.status === "PENDING" || b.status === "CONFIRMED") && (
+                          <button
+                            onClick={() => cancelBooking(b.id)}
+                            className="text-red-500 text-[12px] font-bold hover:underline"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                        {(b.status === "CONFIRMED" ||
+                          b.status === "COMPLETED") && (
+                          <button
+                            onClick={() => setDisputeBooking(b)}
+                            className="text-amber-500 text-[12px] font-bold hover:underline"
+                          >
+                            Dispute
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
             {/* Bookings Pagination Controls */}
@@ -2060,28 +2118,38 @@ const StatCard = ({
   icon,
   bg,
   className = "",
+  loading = false,
 }: {
   title: string;
   value: string;
   icon: React.ReactNode;
   bg: string;
   className?: string;
+  loading?: boolean;
 }) => (
   <div
-    className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3 ${className}`}
+    className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3 ${className} ${loading ? "animate-pulse" : ""}`}
   >
     <div
       className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}
     >
-      {icon}
+      {loading ? (
+        <div className="w-4 h-4 bg-gray-200/50 rounded-full"></div>
+      ) : (
+        icon
+      )}
     </div>
     <div>
       <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
         {title}
       </p>
-      <h4 className="text-[22px] font-black text-gray-900 leading-none">
-        {value}
-      </h4>
+      {loading ? (
+        <div className="h-6 w-12 bg-gray-200 rounded mt-1"></div>
+      ) : (
+        <h4 className="text-[22px] font-black text-gray-900 leading-none">
+          {value}
+        </h4>
+      )}
     </div>
   </div>
 );

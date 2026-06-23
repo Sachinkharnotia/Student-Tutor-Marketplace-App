@@ -177,7 +177,28 @@ export default function AdminDashboard() {
             <span className="bg-orange-100 text-[#F26522] text-[11px] font-bold px-2.5 py-0.5 rounded-full">{pendingTutors.length}</span>
           </div>
           <div className="p-6 flex-1">
-            {pendingTutors.length === 0 ? <p className="text-[13px] text-gray-400 text-center py-8">No tutors pending verification.</p> : (
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2].map(i => (
+                  <div key={i} className="p-4 border border-gray-100 rounded-xl bg-white shadow-sm flex flex-col gap-3 animate-pulse">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1.5 flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                        <div className="h-3 bg-gray-100 rounded w-32"></div>
+                      </div>
+                      <div className="text-right">
+                        <div className="h-3 bg-gray-100 rounded w-16 mb-1"></div>
+                        <div className="h-4 bg-gray-200 rounded w-12 ml-auto"></div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-2 pt-3 border-t border-gray-100">
+                      <div className="h-8 bg-gray-100 rounded-lg flex-1"></div>
+                      <div className="h-8 bg-gray-100 rounded-lg flex-1"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : pendingTutors.length === 0 ? <p className="text-[13px] text-gray-400 text-center py-8">No tutors pending verification.</p> : (
               <div className="space-y-4">
                 {pendingTutors.map(tutor => (
                   <div key={tutor.id} className="p-4 border border-gray-100 rounded-xl bg-white shadow-sm flex flex-col gap-3">
@@ -202,7 +223,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     <div className="flex gap-2 mt-2 pt-3 border-t border-gray-100">
-                      <button onClick={() => handleVerifyTutor(tutor.id, 'APPROVED')} className="flex-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 py-2 rounded-lg text-[12px] font-bold transition flex items-center justify-center gap-1">
+                      <button onClick={() => handleVerifyTutor(tutor.id, 'APPROVED')} className="flex-1 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-emerald-100 transition shadow-sm border border-emerald-200/50">
                         <Check size={14} /> Approve
                       </button>
                       <button onClick={() => handleVerifyTutor(tutor.id, 'REJECTED')} className="flex-1 bg-rose-50 text-rose-600 hover:bg-rose-100 py-2 rounded-lg text-[12px] font-bold transition flex items-center justify-center gap-1">
@@ -221,7 +242,24 @@ export default function AdminDashboard() {
             <span className="bg-orange-100 text-[#F26522] text-[11px] font-bold px-2.5 py-0.5 rounded-full">{pendingStudents.length}</span>
           </div>
           <div className="p-6 flex-1">
-            {pendingStudents.length === 0 ? <p className="text-[13px] text-gray-400 text-center py-8">No students pending verification.</p> : (
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2].map(i => (
+                  <div key={i} className="p-4 border border-gray-100 rounded-xl bg-white shadow-sm flex flex-col gap-3 animate-pulse">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1.5 flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                        <div className="h-3 bg-gray-100 rounded w-32"></div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-2 pt-3 border-t border-gray-100">
+                      <div className="h-8 bg-gray-100 rounded-lg flex-1"></div>
+                      <div className="h-8 bg-gray-100 rounded-lg flex-1"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : pendingStudents.length === 0 ? <p className="text-[13px] text-gray-400 text-center py-8">No students pending verification.</p> : (
               <div className="space-y-4">
                 {pendingStudents.map(student => (
                   <div key={student.id} className="p-4 border border-gray-100 rounded-xl bg-white shadow-sm flex flex-col gap-3">
@@ -233,7 +271,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <div className="flex gap-2 mt-2 pt-3 border-t border-gray-100">
-                      <button onClick={() => handleVerifyStudent(student.id, 'APPROVED')} className="flex-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 py-2 rounded-lg text-[12px] font-bold transition flex items-center justify-center gap-1">
+                      <button onClick={() => handleVerifyStudent(student.id, 'APPROVED')} className="flex-1 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-emerald-100 transition shadow-sm border border-emerald-200/50">
                         <Check size={14} /> Approve
                       </button>
                       <button onClick={() => handleVerifyStudent(student.id, 'REJECTED')} className="flex-1 bg-rose-50 text-rose-600 hover:bg-rose-100 py-2 rounded-lg text-[12px] font-bold transition flex items-center justify-center gap-1">
@@ -268,7 +306,28 @@ export default function AdminDashboard() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {allUsers.map(u => (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <tr key={idx} className="animate-pulse">
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-28 mb-1"></div>
+                    <div className="h-3 bg-gray-100 rounded w-36"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-6 bg-gray-100 rounded-md w-16"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-6 bg-gray-100 rounded-md w-20"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-12"></div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="h-8 bg-gray-100 rounded-lg w-20 ml-auto"></div>
+                  </td>
+                </tr>
+              ))
+            ) : allUsers.map(u => (
               <tr key={u.id} className="hover:bg-gray-50/50 transition">
                 <td className="px-6 py-4">
                   <p className="font-bold text-gray-900">{u.name}</p>
@@ -331,7 +390,33 @@ export default function AdminDashboard() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {payments.map(p => (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <tr key={idx} className="animate-pulse">
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-16"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-20"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-20"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-emerald-100 rounded w-12"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-16"></div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 rounded w-12"></div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="h-8 bg-gray-100 rounded-lg w-24 ml-auto"></div>
+                  </td>
+                </tr>
+              ))
+            ) : payments.map(p => (
               <tr key={p.id} className="hover:bg-gray-50/50 transition">
                 <td className="px-6 py-4 font-mono text-gray-400 text-[11px]">{p.id.substring(0,8)}...</td>
                 <td className="px-6 py-4 font-bold text-gray-800">{p.student?.name}</td>
@@ -355,7 +440,7 @@ export default function AdminDashboard() {
             ))}
           </tbody>
         </table>
-        {payments.length === 0 && <p className="text-center py-8 text-gray-400 text-sm">No transactions found.</p>}
+        {!isLoading && payments.length === 0 && <p className="text-center py-8 text-gray-400 text-sm">No transactions found.</p>}
       </div>
     </div>
   );
@@ -367,7 +452,21 @@ export default function AdminDashboard() {
         <p className="text-[13px] text-gray-500 mt-0.5">Review and resolve reported issues.</p>
       </div>
       <div className="grid grid-cols-1 gap-4">
-        {disputes.length === 0 ? <p className="text-gray-400 text-sm">No disputes submitted.</p> : disputes.map(d => (
+        {isLoading ? (
+          [1, 2, 3].map(i => (
+            <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between animate-pulse">
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-16 bg-gray-200 rounded"></div>
+                  <div className="h-4 w-32 bg-gray-100 rounded"></div>
+                </div>
+                <div className="h-4 w-2/3 bg-gray-200 rounded"></div>
+                <div className="h-3 w-1/2 bg-gray-100 rounded"></div>
+              </div>
+              <div className="h-9 w-28 bg-gray-100 rounded-lg ml-4"></div>
+            </div>
+          ))
+        ) : disputes.length === 0 ? <p className="text-gray-400 text-sm">No disputes submitted.</p> : disputes.map(d => (
           <div key={d.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">
@@ -394,6 +493,45 @@ export default function AdminDashboard() {
   );
 
   const renderAnalyticsTab = () => {
+    if (isLoading) {
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="mb-6">
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Analytics</h1>
+            <p className="text-[13px] text-gray-500 mt-0.5">Platform performance overview and trends.</p>
+          </div>
+          {/* Stat Cards Skeleton */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 animate-pulse">
+                <div className="w-10 h-10 bg-gray-200 rounded-xl"></div>
+                <div>
+                  <div className="h-3 bg-gray-100 rounded w-20 mb-1.5"></div>
+                  <div className="h-6 bg-gray-200 rounded w-16"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Charts Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {Array.from({ length: 2 }).map((_, idx) => (
+              <div key={idx} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-pulse">
+                <div className="mb-4">
+                  <div className="h-4 bg-gray-200 rounded w-32 mb-1.5"></div>
+                  <div className="h-3 bg-gray-100 rounded w-48"></div>
+                </div>
+                <div className="h-[220px] bg-gray-50 rounded-xl flex items-end justify-between p-4">
+                  {Array.from({ length: 8 }).map((_, colIdx) => (
+                    <div key={colIdx} className="w-6 bg-gray-200 rounded-t" style={{ height: `${20 + colIdx * 8}%` }}></div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
     if (!analyticsData) return (
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         <div className="mb-6">

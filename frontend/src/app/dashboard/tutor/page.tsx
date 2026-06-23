@@ -41,6 +41,7 @@ export default function TutorDashboard() {
   const [kycSubmitted, setKycSubmitted] = useState(false);
   const [availabilities, setAvailabilities] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isFetchingBookings, setIsFetchingBookings] = useState(false);
 
   // Force download helper for cross-origin files (Cloudinary)
   const forceDownload = async (url: string) => {
@@ -137,6 +138,7 @@ export default function TutorDashboard() {
 
   const fetchBookings = async (pageVal = bookingsPage) => {
     const token = localStorage.getItem("token");
+    setIsFetchingBookings(true);
     try {
       const resBookings = await fetch(
         `http://localhost:4000/api/booking/tutor-bookings?page=${pageVal}&limit=${bookingsLimit}`,
@@ -159,6 +161,8 @@ export default function TutorDashboard() {
       }
     } catch (err) {
       console.error("Failed to fetch tutor bookings:", err);
+    } finally {
+      setIsFetchingBookings(false);
     }
   };
 
@@ -947,12 +951,14 @@ export default function TutorDashboard() {
                 .length.toString()}
               icon={<MessageSquare size={16} className="text-[#F26522]" />}
               bg="bg-orange-50"
+              loading={isFetchingBookings}
             />
             <StatCard
               title="Total Sessions"
               value={bookings.length.toString()}
               icon={<Calendar size={16} className="text-blue-500" />}
               bg="bg-blue-50"
+              loading={isFetchingBookings}
             />
             <StatCard
               title="Earnings"
@@ -960,6 +966,7 @@ export default function TutorDashboard() {
               icon={<CheckCircle size={16} className="text-emerald-500" />}
               bg="bg-emerald-50"
               className="col-span-2 md:col-span-1"
+              loading={isFetchingBookings}
             />
           </div>
 
@@ -1061,34 +1068,50 @@ export default function TutorDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {bookings.map((b) => (
-                      <tr
-                        key={b.id}
-                        className="hover:bg-gray-50/50 transition-colors"
-                      >
-                        <td className="px-4 py-3 font-bold text-[12px] text-gray-900">
-                          {b.student?.name}
-                        </td>
-                        <td className="px-4 py-3 text-[12px] text-gray-600 font-medium">
-                          {new Date(b.startTime).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded-md border ${
-                              b.status === "CONFIRMED"
-                                ? "bg-blue-50 text-blue-700 border-blue-100"
-                                : b.status === "COMPLETED"
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                                  : b.status === "CANCELLED"
-                                    ? "bg-red-50 text-red-700 border-red-100"
-                                    : "bg-gray-50 text-gray-600 border-gray-200"
-                            }`}
-                          >
-                            {b.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {isFetchingBookings ? (
+                      Array.from({ length: 5 }).map((_, idx) => (
+                        <tr key={idx} className="animate-pulse">
+                          <td className="px-4 py-3 font-bold text-[12px] text-gray-900">
+                            <div className="h-4 bg-gray-200 rounded w-24"></div>
+                          </td>
+                          <td className="px-4 py-3 text-[12px] text-gray-600 font-medium">
+                            <div className="h-4 bg-gray-100 rounded w-32"></div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="h-5 bg-gray-50 rounded-md w-16"></div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      bookings.map((b) => (
+                        <tr
+                          key={b.id}
+                          className="hover:bg-gray-50/50 transition-colors"
+                        >
+                          <td className="px-4 py-3 font-bold text-[12px] text-gray-900">
+                            {b.student?.name}
+                          </td>
+                          <td className="px-4 py-3 text-[12px] text-gray-600 font-medium">
+                            {new Date(b.startTime).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded-md border ${
+                                b.status === "CONFIRMED"
+                                  ? "bg-blue-50 text-blue-700 border-blue-100"
+                                  : b.status === "COMPLETED"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                    : b.status === "CANCELLED"
+                                      ? "bg-red-50 text-red-700 border-red-100"
+                                      : "bg-gray-50 text-gray-600 border-gray-200"
+                              }`}
+                            >
+                              {b.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
 
@@ -1162,7 +1185,20 @@ export default function TutorDashboard() {
                 </span>
               </div>
               <div className="overflow-y-auto flex-1 p-2">
-                {bookings.filter((b) => b.status === "CONFIRMED").length ===
+                {isFetchingBookings ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="p-3 rounded-xl mb-1 border border-gray-100 bg-white/50 animate-pulse space-y-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-gray-200"></div>
+                        <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                      </div>
+                      <div className="h-3 w-16 bg-gray-100 rounded ml-4"></div>
+                    </div>
+                  ))
+                ) : bookings.filter((b) => b.status === "CONFIRMED").length ===
                 0 ? (
                   <div className="p-4 text-[12px] text-center text-gray-400 font-medium">
                     No active students.
@@ -1645,28 +1681,38 @@ const StatCard = ({
   icon,
   bg,
   className = "",
+  loading = false,
 }: {
   title: string;
   value: string;
   icon: React.ReactNode;
   bg: string;
   className?: string;
+  loading?: boolean;
 }) => (
   <div
-    className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3 ${className}`}
+    className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3 ${className} ${loading ? "animate-pulse" : ""}`}
   >
     <div
       className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}
     >
-      {icon}
+      {loading ? (
+        <div className="w-4 h-4 bg-gray-200/50 rounded-full"></div>
+      ) : (
+        icon
+      )}
     </div>
     <div>
       <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
         {title}
       </p>
-      <h4 className="text-[22px] font-black text-gray-900 leading-none">
-        {value}
-      </h4>
+      {loading ? (
+        <div className="h-6 w-12 bg-gray-200 rounded mt-1"></div>
+      ) : (
+        <h4 className="text-[22px] font-black text-gray-900 leading-none">
+          {value}
+        </h4>
+      )}
     </div>
   </div>
 );
