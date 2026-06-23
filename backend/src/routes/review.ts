@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../index';
 import { authenticate } from '../middleware/auth';
+import { validate } from '../middleware/validation.middleware';
+import { rateBookingSchema, completeBookingSchema } from '../validations/booking.validation';
 
 const router = Router();
 
 // Submit a review for a completed booking
-router.post('/', authenticate, async (req: any, res) => {
+router.post('/', authenticate, validate(rateBookingSchema), async (req: any, res) => {
   try {
     const studentId = req.user.id;
     const { bookingId, rating, comment } = req.body;
@@ -49,7 +51,7 @@ router.post('/', authenticate, async (req: any, res) => {
 });
 
 // Complete a session (mock endpoint for MVP)
-router.post('/complete-session', authenticate, async (req: any, res) => {
+router.post('/complete-session', authenticate, validate(completeBookingSchema), async (req: any, res) => {
   try {
     const tutorId = req.user.id;
     const { bookingId } = req.body;

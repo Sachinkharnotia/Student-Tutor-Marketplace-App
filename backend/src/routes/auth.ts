@@ -3,6 +3,17 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import { prisma } from '../index';
+import { validate } from '../middleware/validation.middleware';
+import {
+  registerSchema,
+  loginSchema,
+  verifyOtpSchema,
+  resendOtpSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  updateUserSchema,
+  submitKycSchema
+} from '../validations/auth.validation';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
@@ -48,7 +59,7 @@ async function getTransporter() {
   }
 }
 
-router.post('/register', async (req, res) => {
+router.post('/register', validate(registerSchema), async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
@@ -127,7 +138,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/verify-otp', async (req, res) => {
+router.post('/verify-otp', validate(verifyOtpSchema), async (req, res) => {
   try {
     const { email, otp } = req.body;
     
@@ -157,7 +168,7 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
-router.post('/resend-otp', async (req, res) => {
+router.post('/resend-otp', validate(resendOtpSchema), async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -213,7 +224,7 @@ router.post('/resend-otp', async (req, res) => {
   }
 });
 
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
@@ -256,7 +267,7 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     if (!email || !otp || !newPassword) {
@@ -296,7 +307,7 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', validate(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -383,7 +394,7 @@ router.get('/me', authenticate, async (req: any, res) => {
   }
 });
 
-router.put('/update', authenticate, async (req: any, res) => {
+router.put('/update', authenticate, validate(updateUserSchema), async (req: any, res) => {
   try {
     const { name, email } = req.body;
     
@@ -407,7 +418,7 @@ router.put('/update', authenticate, async (req: any, res) => {
   }
 });
 
-router.post('/submit-kyc', authenticate, async (req: any, res) => {
+router.post('/submit-kyc', authenticate, validate(submitKycSchema), async (req: any, res) => {
   try {
     const { phone, kycDocument, subjects, hourlyRate } = req.body;
     

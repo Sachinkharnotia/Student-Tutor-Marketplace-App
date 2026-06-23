@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../index';
 import { authenticate, authorize } from '../middleware/auth';
+import { validate } from '../middleware/validation.middleware';
+import { getAvailabilitySchema, setAvailabilitySchema } from '../validations/tutor.validation';
 
 const router = Router();
 
 // Get availability for a tutor (publicish, if we have tutor ID)
-router.get('/:tutorId', authenticate, async (req, res) => {
+router.get('/:tutorId', authenticate, validate(getAvailabilitySchema), async (req, res) => {
   try {
     const tutorId = req.params.tutorId as string;
     const availabilities = await prisma.availability.findMany({
@@ -20,7 +22,7 @@ router.get('/:tutorId', authenticate, async (req, res) => {
 });
 
 // Set availability for the logged-in tutor
-router.post('/', authenticate, authorize(['TUTOR']), async (req: any, res) => {
+router.post('/', authenticate, authorize(['TUTOR']), validate(setAvailabilitySchema), async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { availabilities } = req.body; // Array of { dayOfWeek, startTime, endTime }

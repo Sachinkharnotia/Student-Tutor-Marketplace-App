@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../index';
 import { authenticate, authorize } from '../middleware/auth';
+import { validate } from '../middleware/validation.middleware';
+import { studentProfileSchema, tutorProfileSchema } from '../validations/tutor.validation';
 
 const router = Router();
 
 // Student completes profile
-router.post('/student', authenticate, authorize(['STUDENT']), async (req: any, res) => {
+router.post('/student', authenticate, authorize(['STUDENT']), validate(studentProfileSchema), async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { phone } = req.body;
@@ -32,7 +34,7 @@ router.post('/student', authenticate, authorize(['STUDENT']), async (req: any, r
 });
 
 // Tutor completes KYC profile
-router.post('/tutor', authenticate, authorize(['TUTOR']), async (req: any, res) => {
+router.post('/tutor', authenticate, authorize(['TUTOR']), validate(tutorProfileSchema), async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { phone, kycDocument, subjects, hourlyRate } = req.body;

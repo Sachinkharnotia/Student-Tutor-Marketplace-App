@@ -19,6 +19,7 @@ import bookingRoutes from './routes/booking';
 import reviewRoutes from './routes/review';
 import availabilityRoutes from './routes/availability';
 import disputeRoutes from './routes/dispute';
+import chatRoutes from './routes/chat';
 
 const app = express();
 const httpServer = createServer(app);
@@ -55,6 +56,7 @@ app.use('/api/booking', bookingRoutes);
 app.use('/api/review', reviewRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/dispute', disputeRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Basic health check
 app.get('/health', (req, res) => {

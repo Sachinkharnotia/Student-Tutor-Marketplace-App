@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../index';
 import { authenticate } from '../middleware/auth';
+import { validate } from '../middleware/validation.middleware';
+import { getTutorsQuerySchema } from '../validations/tutor.validation';
 
 const router = Router();
 
 // Get all verified tutors for the marketplace
-router.get('/tutors', authenticate, async (req, res) => {
+router.get('/tutors', authenticate, validate(getTutorsQuerySchema), async (req, res) => {
   try {
     const { search, subject, minPrice, maxPrice, sortBy } = req.query;
     const page = Math.max(parseInt(String(req.query.page || '1'), 10) || 1, 1);

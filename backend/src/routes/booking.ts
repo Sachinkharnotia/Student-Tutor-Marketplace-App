@@ -4,6 +4,15 @@ import { authenticate, authorize } from '../middleware/auth';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from '../utils/mailer';
+import { validate } from '../middleware/validation.middleware';
+import {
+  createBookingSchema,
+  cancelBookingSchema,
+  verifyPaymentSchema,
+  getBookingsQuerySchema,
+  completeBookingSchema,
+  rateBookingSchema
+} from '../validations/booking.validation';
 
 const router = Router();
 
@@ -36,7 +45,7 @@ function getRazorpay() {
 }
 
 // Create a booking
-router.post('/create', authenticate, authorize(['STUDENT']), async (req: any, res) => {
+router.post('/create', authenticate, authorize(['STUDENT']), validate(createBookingSchema), async (req: any, res) => {
   try {
     const studentId = req.user.id;
     const { tutorId, startTime, endTime, amount } = req.body;
@@ -118,7 +127,7 @@ router.post('/create', authenticate, authorize(['STUDENT']), async (req: any, re
 });
 
 // Cancel a booking
-router.post('/cancel', authenticate, async (req: any, res) => {
+router.post('/cancel', authenticate, validate(cancelBookingSchema), async (req: any, res) => {
   try {
     const { bookingId } = req.body;
     const userId = req.user.id;
@@ -181,7 +190,7 @@ router.post('/cancel', authenticate, async (req: any, res) => {
 });
 
 // Verify payment webhook or endpoint
-router.post('/verify-payment', authenticate, async (req, res) => {
+router.post('/verify-payment', authenticate, validate(verifyPaymentSchema), async (req, res) => {
   try {
     const { bookingId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
 
@@ -225,7 +234,7 @@ router.post('/verify-payment', authenticate, async (req, res) => {
 });
 
 // Get student bookings
-router.get('/my-bookings', authenticate, authorize(['STUDENT']), async (req: any, res) => {
+router.get('/my-bookings', authenticate, authorize(['STUDENT']), validate(getBookingsQuerySchema), async (req: any, res) => {
   try {
     const studentId = req.user.id;
     const { page, limit, skip } = getPagination(req.query);
@@ -248,7 +257,7 @@ router.get('/my-bookings', authenticate, authorize(['STUDENT']), async (req: any
 });
 
 // Get tutor bookings
-router.get('/tutor-bookings', authenticate, authorize(['TUTOR']), async (req: any, res) => {
+router.get('/tutor-bookings', authenticate, authorize(['TUTOR']), validate(getBookingsQuerySchema), async (req: any, res) => {
   try {
     const { page, limit, skip } = getPagination(req.query);
     console.log(`API [GET /tutor-bookings] called by Tutor ID: ${req.user.id}`);
@@ -269,7 +278,7 @@ router.get('/tutor-bookings', authenticate, authorize(['TUTOR']), async (req: an
   }
 });
 
-router.get('/', authenticate, async (req: any, res) => {
+router.get('/', authenticate, validate(getBookingsQuerySchema), async (req: any, res) => {
   try {
     const { page, limit, skip } = getPagination(req.query);
     const where = req.user.role === 'TUTOR'
@@ -301,7 +310,7 @@ router.get('/', authenticate, async (req: any, res) => {
 });
 
 // Mark booking as completed
-router.post('/complete', authenticate, async (req: any, res) => {
+router.post('/complete', authenticate, validate(completeBookingSchema), async (req: any, res) => {
   try {
     const { bookingId } = req.body;
     
@@ -318,7 +327,7 @@ router.post('/complete', authenticate, async (req: any, res) => {
 });
 
 // Submit a Rating
-router.post('/rate', authenticate, authorize(['STUDENT']), async (req: any, res) => {
+router.post('/rate', authenticate, authorize(['STUDENT']), validate(rateBookingSchema), async (req: any, res) => {
   try {
     const { bookingId, rating, comment } = req.body;
     
