@@ -833,16 +833,16 @@ export default function StudentDashboard() {
     </div>
   );
   const renderSidebar = () => (
-    <div className="w-20 md:w-64 bg-white border-r border-gray-100 flex flex-col h-screen fixed left-0 top-0 transition-all z-20">
+    <div className="w-20 md:w-64 bg-white/85 backdrop-blur-md border-r border-slate-100/80 flex flex-col h-screen fixed left-0 top-0 transition-all z-20">
       <Link
         href="/"
-        className="h-16 flex items-center justify-center md:justify-start md:px-6 gap-3 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+        className="h-16 flex items-center justify-center md:justify-start md:px-6 gap-3 border-b border-slate-100/80 hover:bg-slate-50/50 transition-colors cursor-pointer"
       >
         <div className="w-8 h-8 bg-gradient-to-tr from-[#F26522] to-[#ff8e5e] rounded-xl flex items-center justify-center shadow-sm shadow-orange-200">
           <BookOpen size={16} className="text-white" />
         </div>
-        <span className="font-bold text-[15px] text-gray-900 hidden md:block">
-          Marketplace
+        <span className="font-bold text-[14px] text-slate-800 tracking-tight hidden md:block">
+          Educator Hub
         </span>
       </Link>
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -880,7 +880,7 @@ export default function StudentDashboard() {
           onClick={() => setActiveTab("messages")}
         />
       </nav>
-      <div className="p-3 border-t border-gray-100">
+      <div className="p-3 border-t border-slate-100/80">
         <NavItem
           icon={<Settings />}
           label="Settings"
@@ -892,7 +892,7 @@ export default function StudentDashboard() {
         />
         <button
           onClick={handleLogout}
-          className="flex items-center justify-center md:justify-start gap-3 px-3 md:px-4 py-2.5 text-xs font-semibold text-red-500 rounded-xl hover:bg-red-50 w-full transition-colors mt-1"
+          className="flex items-center justify-center md:justify-start gap-3 px-3 md:px-4 py-2.5 text-xs font-semibold text-rose-500 rounded-xl hover:bg-rose-50/50 w-full transition-colors mt-1"
         >
           <LogOut size={16} /> <span className="hidden md:block">Log out</span>
         </button>
@@ -900,20 +900,20 @@ export default function StudentDashboard() {
     </div>
   );
   const renderHeader = () => (
-    <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
-      <div className="flex items-center bg-gray-100/80 rounded-full px-4 py-1.5 w-full max-w-xs border border-transparent focus-within:bg-white focus-within:border-orange-200 focus-within:ring-2 focus-within:ring-orange-50 transition-all">
-        <Search size={14} className="text-gray-400" />
+    <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-100/80 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
+      <div className="flex items-center bg-slate-50 rounded-full px-4 py-1.5 w-full max-w-xs border border-transparent focus-within:bg-white focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/10 transition-all">
+        <Search size={14} className="text-slate-400" />
         <input
           type="text"
           placeholder="Search tutors..."
-          className="bg-transparent border-none focus:outline-none ml-2 w-full text-[13px] text-gray-800 placeholder-gray-400"
+          className="bg-transparent border-none focus:outline-none ml-2 w-full text-[13px] text-slate-700 placeholder-slate-400"
         />
       </div>
       <div className="flex items-center gap-4">
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative text-gray-400 hover:text-gray-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+            className="relative text-slate-400 hover:text-slate-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-50"
           >
             <Bell size={16} />
             {bookings.length > 0 && (
@@ -1917,7 +1917,7 @@ export default function StudentDashboard() {
     </div>
   );
   return (
-    <div className="min-h-screen bg-[#f8f9fa] flex font-sans selection:bg-orange-100 selection:text-orange-900">
+    <div className="min-h-screen bg-[#f8fafc] flex font-sans selection:bg-orange-100 selection:text-orange-900">
       {renderSidebar()}
       <div className="flex-1 ml-20 md:ml-64 flex flex-col transition-all">
         {renderHeader()}
@@ -2086,7 +2086,6 @@ export default function StudentDashboard() {
     </div>
   );
 }
-// --- Helper Components ---
 const NavItem = ({
   icon,
   label,
@@ -2100,13 +2099,13 @@ const NavItem = ({
 }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center justify-center md:justify-start gap-3 px-3 md:px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${
+    className={`w-full flex items-center justify-center md:justify-start gap-3 px-3 md:px-4 py-2.5 rounded-lg text-[13px] font-semibold transition-all relative ${
       active
-        ? "bg-orange-50 text-[#F26522]"
-        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+        ? "bg-slate-50 text-slate-900 border-l-2 border-[#F26522] rounded-l-none pl-3 md:pl-3.5"
+        : "text-slate-500 hover:bg-slate-50/50 hover:text-slate-800"
     }`}
   >
-    <div className={`${active ? "text-[#F26522]" : "text-gray-400"}`}>
+    <div className={`${active ? "text-[#F26522]" : "text-slate-400"}`}>
       {React.cloneElement(icon as React.ReactElement, { size: 16 } as any)}
     </div>
     <span className="hidden md:block">{label}</span>
@@ -2128,25 +2127,25 @@ const StatCard = ({
   loading?: boolean;
 }) => (
   <div
-    className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3 ${className} ${loading ? "animate-pulse" : ""}`}
+    className={`bg-white rounded-xl p-5 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.01)] flex flex-col gap-3 transition-all duration-200 hover:shadow-[0_4px_12px_rgba(0,0,0,0.03)] ${className} ${loading ? "animate-pulse" : ""}`}
   >
     <div
-      className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}
+      className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center shrink-0`}
     >
       {loading ? (
-        <div className="w-4 h-4 bg-gray-200/50 rounded-full"></div>
+        <div className="w-3.5 h-3.5 bg-gray-200/50 rounded-full"></div>
       ) : (
         icon
       )}
     </div>
     <div>
-      <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">
         {title}
       </p>
       {loading ? (
         <div className="h-6 w-12 bg-gray-200 rounded mt-1"></div>
       ) : (
-        <h4 className="text-[22px] font-black text-gray-900 leading-none">
+        <h4 className="text-[22px] font-bold text-slate-800 leading-none">
           {value}
         </h4>
       )}
