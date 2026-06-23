@@ -1,14 +1,31 @@
 "use client";
-
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { io, Socket } from "socket.io-client";
-import { 
-  BookOpen, Calendar, MessageSquare, Settings, LogOut, 
-  Search, Bell, ChevronRight, Star, Clock, ShieldAlert, Lock, UserCheck, PlayCircle, X, CheckCircle, Paperclip, FileText, Trash2, AlertTriangle, Download 
+import {
+  BookOpen,
+  Calendar,
+  MessageSquare,
+  Settings,
+  LogOut,
+  Search,
+  Bell,
+  ChevronRight,
+  Star,
+  Clock,
+  ShieldAlert,
+  Lock,
+  UserCheck,
+  PlayCircle,
+  X,
+  CheckCircle,
+  Paperclip,
+  FileText,
+  Trash2,
+  AlertTriangle,
+  Download,
 } from "lucide-react";
-
 export default function StudentDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -18,73 +35,61 @@ export default function StudentDashboard() {
   const [otp, setOtp] = useState("");
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
-
-  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+  const showToast = (
+    message: string,
+    type: "success" | "error" | "info" = "success",
+  ) => {
     setToast({ message, type });
   };
-
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 4000);
       return () => clearTimeout(timer);
     }
   }, [toast]);
-
   const [tutors, setTutors] = useState<any[]>([]);
+  const [tutorsPage, setTutorsPage] = useState(1);
+  const [tutorsLimit] = useState(6);
+  const [tutorsTotalPages, setTutorsTotalPages] = useState(1);
+  const [tutorsTotal, setTutorsTotal] = useState(0);
+
   const [bookings, setBookings] = useState<any[]>([]);
+  const [bookingsPage, setBookingsPage] = useState(1);
+  const [bookingsLimit] = useState(5);
+  const [bookingsTotalPages, setBookingsTotalPages] = useState(1);
+  const [bookingsTotal, setBookingsTotal] = useState(0);
   const [activeTab, _setActiveTab] = useState("dashboard");
   const setActiveTab = (tab: string) => {
     _setActiveTab(tab);
     localStorage.setItem("activeTab", tab);
-    if (tab !== 'messages') {
+    if (tab !== "messages") {
       setActiveChat(null);
       localStorage.removeItem("activeChatId");
     }
   };
   const [isLoadingData, setIsLoadingData] = useState(true);
-
   // Filters
   const [filterSearch, setFilterSearch] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
   const [filterMinPrice, setFilterMinPrice] = useState("");
   const [filterMaxPrice, setFilterMaxPrice] = useState("");
   const [filterSortBy, setFilterSortBy] = useState("");
-
   // Booking Modal State
   const [selectedTutor, setSelectedTutor] = useState<any>(null);
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
   const [isBooking, setIsBooking] = useState(false);
-
-  // Rating & Dispute Modal State
-  const [ratingBooking, setRatingBooking] = useState<any>(null);
-  const [ratingVal, setRatingVal] = useState(5);
-  };
-  const [isLoadingData, setIsLoadingData] = useState(true);
-
-  // Filters
-  const [filterSearch, setFilterSearch] = useState("");
-  const [filterSubject, setFilterSubject] = useState("");
-  const [filterMinPrice, setFilterMinPrice] = useState("");
-  const [filterMaxPrice, setFilterMaxPrice] = useState("");
-  const [filterSortBy, setFilterSortBy] = useState("");
-
-  // Booking Modal State
-  const [selectedTutor, setSelectedTutor] = useState<any>(null);
-  const [bookingDate, setBookingDate] = useState("");
-  const [bookingTime, setBookingTime] = useState("");
-  const [isBooking, setIsBooking] = useState(false);
-
   // Rating & Dispute Modal State
   const [ratingBooking, setRatingBooking] = useState<any>(null);
   const [ratingVal, setRatingVal] = useState(5);
   const [ratingComment, setRatingComment] = useState("");
-  
   const [disputeBooking, setDisputeBooking] = useState<any>(null);
   const [disputeReason, setDisputeReason] = useState("");
   const [showNotifications, setShowNotifications] = useState(false);
-
   // Chat State
   const [socket, setSocket] = useState<Socket | null>(null);
   const [activeChat, setActiveChat] = useState<any>(null);
@@ -94,22 +99,30 @@ export default function StudentDashboard() {
   const [chatTotalPages, setChatTotalPages] = useState(1);
   const [isFetchingChat, setIsFetchingChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  const fetchChatHistory = async (roomId: string, pageNum: number, append = false) => {
+  const fetchChatHistory = async (
+    roomId: string,
+    pageNum: number,
+    append = false,
+  ) => {
     const token = localStorage.getItem("token");
     setIsFetchingChat(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/chat/${roomId}/messages?page=${pageNum}&limit=20`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await fetch(
+        `http://localhost:4000/api/chat/${roomId}/messages?page=${pageNum}&limit=20`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         if (append) {
-          setChatMessages(prev => [...data.data, ...prev]);
+          setChatMessages((prev) => [...data.data, ...prev]);
         } else {
           setChatMessages(data.data || []);
           setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "instant" as any });
+            messagesEndRef.current?.scrollIntoView({
+              behavior: "instant" as any,
+            });
           }, 50);
         }
         setChatPage(data.pagination.page);
@@ -127,34 +140,37 @@ export default function StudentDashboard() {
     const token = localStorage.getItem("token");
     try {
       showToast("Downloading file...", "info");
-      const res = await fetch(`http://localhost:4000/api/upload/download?url=${encodeURIComponent(url)}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Download failed');
+      const res = await fetch(
+        `http://localhost:4000/api/upload/download?url=${encodeURIComponent(url)}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = blobUrl;
-      const urlParts = url.split('/');
-      a.download = decodeURIComponent(urlParts[urlParts.length - 1].split('?')[0]) || 'download';
+      const urlParts = url.split("/");
+      a.download =
+        decodeURIComponent(urlParts[urlParts.length - 1].split("?")[0]) ||
+        "download";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
       showToast("File downloaded!", "success");
     } catch (err) {
-      console.error('Download error:', err);
-      window.open(url, '_blank');
+      console.error("Download error:", err);
+      window.open(url, "_blank");
       showToast("Opened file in new tab (download failed)", "info");
     }
   };
-
   useEffect(() => {
     if (user && user.studentProfile) {
       setPhone(user.studentProfile.phone || "");
     }
   }, [user]);
-
   const handleCompleteProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone) return showToast("Please enter your phone number.", "error");
@@ -163,8 +179,11 @@ export default function StudentDashboard() {
     try {
       const res = await fetch("http://localhost:4000/api/profile/student", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ phone })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ phone }),
       });
       if (res.ok) {
         showToast("Profile completed! Sent for admin approval.", "success");
@@ -180,57 +199,36 @@ export default function StudentDashboard() {
       setIsUpdating(false);
     }
   };
-
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) {
       router.push("/login");
       return;
-    } 
+    }
     const parsed = JSON.parse(userData);
-    if (parsed.role !== 'STUDENT') {
+    if (parsed.role !== "STUDENT") {
       router.push("/login");
       return;
     }
     setUser(parsed);
     setEditName(parsed.name);
     setEditEmail(parsed.email);
-
-    // Restore active tab
-    const savedTab = localStorage.getItem("activeTab");
-    if (savedTab) {
-      _setActiveTab(savedTab);
-    }
-
     const newSocket = io("http://localhost:4000");
     setSocket(newSocket);
-
     newSocket.on("receive_message", (data) => {
       setChatMessages((prev) => [...prev, data]);
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 50);
     });
-
     // Load Razorpay Script
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
     document.body.appendChild(script);
-
-    return () => { 
-      newSocket.disconnect(); 
+    return () => {
+      newSocket.disconnect();
       document.body.removeChild(script);
     };
   }, [router]);
-
-  useEffect(() => {
-    if (socket && activeChat) {
-      socket.emit("join_room", activeChat.id);
-    }
-  }, [socket, activeChat?.id]);
-
-  const fetchTutors = async () => {
+  const fetchTutors = async (pageVal = tutorsPage) => {
     const token = localStorage.getItem("token");
     try {
       const params = new URLSearchParams();
@@ -239,27 +237,87 @@ export default function StudentDashboard() {
       if (filterMinPrice) params.append("minPrice", filterMinPrice);
       if (filterMaxPrice) params.append("maxPrice", filterMaxPrice);
       if (filterSortBy) params.append("sortBy", filterSortBy);
-
-      const res = await fetch(`http://localhost:4000/api/marketplace/tutors?${params.toString()}`, { 
-        headers: { "Authorization": `Bearer ${token}` } 
-      });
+      params.append("page", String(pageVal));
+      params.append("limit", String(tutorsLimit));
+      const res = await fetch(
+        `http://localhost:4000/api/marketplace/tutors?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (res.ok) {
-        const data = await res.json();
-        setTutors(Array.isArray(data) ? data : data.data || []);
+        const resData = await res.json();
+        if (resData && Array.isArray(resData)) {
+          setTutors(resData);
+          setTutorsTotalPages(1);
+          setTutorsTotal(resData.length);
+        } else if (resData && resData.data) {
+          setTutors(resData.data);
+          setTutorsPage(resData.pagination.page);
+          setTutorsTotalPages(resData.pagination.totalPages);
+          setTutorsTotal(resData.pagination.total);
+        }
       }
     } catch (err) {
       console.error(err);
     }
   };
 
+  const fetchBookings = async (pageVal = bookingsPage) => {
+    const token = localStorage.getItem("token");
+    try {
+      const resBookings = await fetch(
+        `http://localhost:4000/api/booking/my-bookings?page=${pageVal}&limit=${bookingsLimit}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (resBookings.ok) {
+        const bookingsData = await resBookings.json();
+        if (Array.isArray(bookingsData)) {
+          setBookings(bookingsData);
+          setBookingsTotalPages(1);
+          setBookingsTotal(bookingsData.length);
+        } else if (bookingsData && bookingsData.data) {
+          const bookingsList = bookingsData.data;
+          setBookings(bookingsList);
+          setBookingsPage(bookingsData.pagination.page);
+          setBookingsTotalPages(bookingsData.pagination.totalPages);
+          setBookingsTotal(bookingsData.pagination.total);
+
+          // Restore active chat if page was refreshed
+          const savedActiveChatId = localStorage.getItem("activeChatId");
+          const savedActiveTab =
+            localStorage.getItem("activeTab") || "dashboard";
+          if (savedActiveChatId && savedActiveTab === "messages") {
+            const foundBooking = bookingsList.find(
+              (b: any) => b.id === savedActiveChatId,
+            );
+            if (foundBooking) {
+              setActiveChat(foundBooking);
+              fetchChatHistory(foundBooking.id, 1, false);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch bookings:", err);
+    }
+  };
   const submitDispute = async () => {
     if (!disputeReason) return showToast("Reason is required", "error");
     const token = localStorage.getItem("token");
     try {
       const res = await fetch("http://localhost:4000/api/dispute/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ bookingId: disputeBooking.id, reason: disputeReason })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          bookingId: disputeBooking.id,
+          reason: disputeReason,
+        }),
       });
       if (res.ok) {
         showToast("Dispute submitted.", "success");
@@ -274,46 +332,25 @@ export default function StudentDashboard() {
       console.error(err);
     }
   };
-
   const fetchData = async () => {
     setIsLoadingData(true);
     const token = localStorage.getItem("token");
     try {
-      const [resBookings, resMe] = await Promise.all([
-        fetch("http://localhost:4000/api/booking/my-bookings", { headers: { "Authorization": `Bearer ${token}` } }),
-        fetch("http://localhost:4000/api/auth/me", { headers: { "Authorization": `Bearer ${token}` } })
-      ]);
-      
-      if (resBookings.ok) {
-        const bookingsData = await resBookings.json();
-        const bookingsList = Array.isArray(bookingsData) ? bookingsData : bookingsData.data || [];
-        setBookings(bookingsList);
-        
-        // Restore active chat if page was refreshed
-        const savedActiveChatId = localStorage.getItem("activeChatId");
-        const savedActiveTab = localStorage.getItem("activeTab") || "dashboard";
-        if (savedActiveChatId && savedActiveTab === 'messages') {
-          const foundBooking = bookingsList.find((b: any) => b.id === savedActiveChatId);
-          if (foundBooking) {
-            setActiveChat(foundBooking);
-            fetchChatHistory(foundBooking.id, 1, false);
-          }
-        }
-      }
+      const resMe = await fetch("http://localhost:4000/api/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (resMe.ok) {
         const meData = await resMe.json();
         setUser(meData.user);
         localStorage.setItem("user", JSON.stringify(meData.user));
       }
-      
-      await fetchTutors();
+      await Promise.all([fetchBookings(bookingsPage), fetchTutors(tutorsPage)]);
     } catch (err) {
       console.error(err);
     } finally {
       setIsLoadingData(false);
     }
   };
-
   const handleVerifyOtpDashboard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp) return showToast("Please enter the OTP.", "error");
@@ -322,7 +359,7 @@ export default function StudentDashboard() {
       const res = await fetch("http://localhost:4000/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email, otp })
+        body: JSON.stringify({ email: user.email, otp }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -342,30 +379,44 @@ export default function StudentDashboard() {
       setIsVerifyingOtp(false);
     }
   };
-
   useEffect(() => {
     if (user?.id) fetchData();
   }, [user?.id]);
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     router.push("/login");
   };
-
   const deleteAccount = async () => {
-    if (!confirm('⚠️ Are you sure you want to permanently delete your account? This action cannot be undone. All your data, bookings, and messages will be lost.')) return;
-    if (!confirm('This is your FINAL confirmation. Delete account permanently?')) return;
+    if (
+      !confirm(
+        "ÔÜá´©Å Are you sure you want to permanently delete your account? This action cannot be undone. All your data, bookings, and messages will be lost.",
+      )
+    )
+      return;
+    if (
+      !confirm("This is your FINAL confirmation. Delete account permanently?")
+    )
+      return;
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch("http://localhost:4000/api/profile/delete-account", {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await fetch(
+        "http://localhost:4000/api/profile/delete-account",
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (res.ok) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        localStorage.setItem("toastMessage", JSON.stringify({ message: "Your account has been permanently deleted.", type: "success" }));
+        localStorage.setItem(
+          "toastMessage",
+          JSON.stringify({
+            message: "Your account has been permanently deleted.",
+            type: "success",
+          }),
+        );
         router.push("/login");
       } else {
         showToast("Failed to delete account.", "error");
@@ -375,15 +426,22 @@ export default function StudentDashboard() {
       showToast("Error deleting account.", "error");
     }
   };
-
   const cancelBooking = async (bookingId: string) => {
-    if (!confirm("Are you sure you want to cancel this booking? If you paid, you might get a refund based on our policy.")) return;
+    if (
+      !confirm(
+        "Are you sure you want to cancel this booking? If you paid, you might get a refund based on our policy.",
+      )
+    )
+      return;
     const token = localStorage.getItem("token");
     try {
       const res = await fetch("http://localhost:4000/api/booking/cancel", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ bookingId })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ bookingId }),
       });
       if (res.ok) {
         showToast("Booking cancelled.", "success");
@@ -397,56 +455,74 @@ export default function StudentDashboard() {
       showToast("Error cancelling booking.", "error");
     }
   };
-
   const handleBookSlot = async () => {
-    if (!selectedTutor || !bookingDate || !bookingTime) return showToast("Select date and time.", "error");
+    if (!selectedTutor || !bookingDate || !bookingTime)
+      return showToast("Select date and time.", "error");
     setIsBooking(true);
     const token = localStorage.getItem("token");
-
     // Safe cross-browser local date parsing
-    const [year, month, day] = bookingDate.split('-').map(Number);
-    const [hour, minute] = bookingTime.split(':').map(Number);
+    const [year, month, day] = bookingDate.split("-").map(Number);
+    const [hour, minute] = bookingTime.split(":").map(Number);
     const start = new Date(year, month - 1, day, hour, minute, 0);
-
     if (isNaN(start.getTime())) {
-      showToast("Invalid date or time selected. Please select a valid slot.", "error");
+      showToast(
+        "Invalid date or time selected. Please select a valid slot.",
+        "error",
+      );
       setIsBooking(false);
       return;
     }
-
-    const end = new Date(start.getTime() + 60 * 60 * 1000); 
-
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
     try {
-      const createRes = await fetch("http://localhost:4000/api/booking/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ tutorId: selectedTutor.userId, startTime: start.toISOString(), endTime: end.toISOString(), amount: selectedTutor.hourlyRate })
-      });
+      const createRes = await fetch(
+        "http://localhost:4000/api/booking/create",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            tutorId: selectedTutor.userId,
+            startTime: start.toISOString(),
+            endTime: end.toISOString(),
+            amount: selectedTutor.hourlyRate,
+          }),
+        },
+      );
       const createData = await createRes.json();
-
       if (createRes.ok) {
         const options: any = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_T2FcJDXckdlgIZ",
+          key:
+            process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
+            "rzp_test_T2FcJDXckdlgIZ",
           amount: createData.booking.amount * 100,
           currency: "INR",
           name: "Educator Hub",
           description: `Session with ${selectedTutor.user.name}`,
           handler: async function (response: any) {
-            const verifyRes = await fetch("http://localhost:4000/api/booking/verify-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-              body: JSON.stringify({ 
-                bookingId: createData.booking.id, 
-                razorpayPaymentId: response.razorpay_payment_id || `pay_mock_${Date.now()}`, 
-                razorpayOrderId: response.razorpay_order_id || createData.orderId, 
-                razorpaySignature: response.razorpay_signature || "MOCK" 
-              })
-            });
-
+            const verifyRes = await fetch(
+              "http://localhost:4000/api/booking/verify-payment",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  bookingId: createData.booking.id,
+                  razorpayPaymentId:
+                    response.razorpay_payment_id || `pay_mock_${Date.now()}`,
+                  razorpayOrderId:
+                    response.razorpay_order_id || createData.orderId,
+                  razorpaySignature: response.razorpay_signature || "MOCK",
+                }),
+              },
+            );
             if (verifyRes.ok) {
               showToast("Payment Successful! Booking Confirmed.", "success");
               setSelectedTutor(null);
-              setActiveTab('sessions');
+              setActiveTab("sessions");
               fetchData();
             }
           },
@@ -454,12 +530,11 @@ export default function StudentDashboard() {
             name: user.name,
             email: user.email,
           },
-          theme: { color: "#F26522" }
+          theme: { color: "#F26522" },
         };
-
         options.order_id = createData.orderId;
         const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', function (response: any) {
+        rzp.on("payment.failed", function (response: any) {
           showToast("Payment Failed: " + response.error.description, "error");
           setIsBooking(false);
         });
@@ -470,49 +545,1058 @@ export default function StudentDashboard() {
       setIsBooking(false);
     }
   };
-
   const openChat = (booking: any) => {
     setActiveChat(booking);
     setChatMessages([]);
-    localStorage.setItem("activeChatId", booking.id);
-    fetchChatHistory(booking.id, 1, false);
     if (socket) socket.emit("join_room", booking.id);
   };
-
   const sendMessage = () => {
     if (!chatInput.trim() || !activeChat || !socket) return;
-    const messageData = { room: activeChat.id, senderId: user.id, content: chatInput, message: chatInput };
+    const messageData = {
+      room: activeChat.id,
+      senderId: user.id,
+      message: chatInput,
+    };
     socket.emit("send_message", messageData);
+    setChatMessages((prev) => [...prev, messageData]);
     setChatInput("");
   };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0 || !activeChat || !socket) return;
+    if (
+      !e.target.files ||
+      e.target.files.length === 0 ||
+      !activeChat ||
+      !socket
+    )
+      return;
     const file = e.target.files[0];
     const token = localStorage.getItem("token");
-    
     showToast("Uploading file...", "info");
     const formData = new FormData();
     formData.append("file", file);
-    
     try {
       const res = await fetch("http://localhost:4000/api/upload", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
       if (res.ok) {
         const data = await res.json();
-        const messageData = { room: activeChat.id, senderId: user.id, content: `[FILE] ${data.url}`, message: `[FILE] ${data.url}` };
+        const messageData = {
+          room: activeChat.id,
+          senderId: user.id,
+          message: `[FILE] ${data.url}`,
+        };
         socket.emit("send_message", messageData);
+        setChatMessages((prev) => [...prev, messageData]);
         showToast("File sent!", "success");
-                    </label>
-                    <input 
-                      type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                      placeholder="Type a message..." 
-                      className="flex-1 px-4 py-2.5 bg-gray-50 rounded-full border border-gray-200/60 outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 text-[13px] transition-all" 
+      } else {
+        showToast("Upload failed", "error");
+      }
+    } catch (err) {
+      showToast("Upload error", "error");
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    const token = localStorage.getItem("token");
+    showToast("Uploading avatar...", "info");
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("http://localhost:4000/api/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const updateRes = await fetch("http://localhost:4000/api/auth/update", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ avatar: data.url }),
+        });
+        if (updateRes.ok) {
+          const updateData = await updateRes.json();
+          setUser(updateData.user);
+          localStorage.setItem("user", JSON.stringify(updateData.user));
+          showToast("Avatar updated successfully!", "success");
+        } else {
+          showToast("Failed to update profile", "error");
+        }
+      } else {
+        showToast("Upload failed", "error");
+      }
+    } catch (err) {
+      showToast("Upload error", "error");
+    }
+  };
+  const markCompleted = async (bookingId: string) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch("http://localhost:4000/api/booking/complete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ bookingId }),
+    });
+    if (res.ok) fetchData();
+  };
+  const updateProfile = async () => {
+    setIsUpdating(true);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:4000/api/auth/update", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: editName, email: editEmail }),
+      });
+      if (res.ok) {
+        await fetch("http://localhost:4000/api/profile/student", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ phone }),
+        });
+        showToast("Profile updated successfully!", "success");
+        fetchData();
+      } else {
+        const err = await res.json();
+        showToast(err.error || "Failed to update profile", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Error updating profile", "error");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  const submitRating = async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch("http://localhost:4000/api/booking/rate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        bookingId: ratingBooking.id,
+        rating: ratingVal,
+        comment: ratingComment,
+      }),
+    });
+    if (res.ok) {
+      showToast("Review submitted!", "success");
+      setRatingBooking(null);
+      fetchData();
+    }
+  };
+  if (!user || isLoadingData)
+    return (
+      <div className="min-h-screen flex bg-[#f5f5f5] font-sans">
+        {/* Sidebar Skeleton */}
+        <div className="w-20 md:w-64 bg-white border-r border-gray-100 flex flex-col h-screen p-4 space-y-4">
+          <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+          <div className="flex-1 space-y-2 pt-6">
+            <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+            <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+          </div>
+        </div>
+        {/* Main Content Skeleton */}
+        <div className="flex-1 flex flex-col ml-20 md:ml-64">
+          <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-end px-8">
+            <div className="w-24 h-8 bg-gray-100 rounded-xl animate-pulse"></div>
+          </header>
+          <main className="flex-1 p-8 space-y-6">
+            <div className="max-w-5xl space-y-6">
+              <div className="space-y-2">
+                <div className="h-6 w-48 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 w-32 bg-gray-100 rounded animate-pulse"></div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+                <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+                <div className="h-24 bg-gray-100 rounded-2xl animate-pulse"></div>
+              </div>
+              <div className="h-64 bg-gray-100 rounded-2xl animate-pulse"></div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  const isOtpVerified = user.isVerified === true;
+  const isProfileComplete = !!user.studentProfile?.phone;
+  const isApproved = user.studentProfile?.status === "APPROVED";
+  const isVerified = isApproved;
+  if (!isOtpVerified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 relative font-sans">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-gray-100 shadow-xl p-8 text-center animate-in fade-in slide-in-from-bottom-5">
+          <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 text-[#F26522] border border-orange-100">
+            <Lock size={28} />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 tracking-tight mb-2">
+            Step 1: Verify Email
+          </h2>
+          <p className="text-[13px] text-gray-500 mb-6 leading-relaxed">
+            Please enter the 6-digit OTP sent to <b>{user.email}</b> to verify
+            your email.
+          </p>
+          <form
+            onSubmit={handleVerifyOtpDashboard}
+            className="space-y-4 text-left"
+          >
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                One-Time Password
+              </label>
+              <input
+                type="text"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                required
+                maxLength={6}
+                placeholder="123456"
+                className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-center tracking-widest text-lg font-bold text-gray-800 transition-all"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isVerifyingOtp || otp.length < 6}
+              className="w-full bg-[#F26522] text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-orange-500/10"
+            >
+              {isVerifyingOtp ? "Verifying..." : "Verify OTP"}{" "}
+              <ChevronRight size={16} />
+            </button>
+          </form>
+          <button
+            onClick={handleLogout}
+            className="mt-6 text-xs font-semibold text-red-500 hover:underline"
+          >
+            Log out
+          </button>
+        </div>
+      </div>
+    );
+  }
+  const NavItem = ({
+    icon,
+    label,
+    active,
+    onClick,
+  }: {
+    icon: any;
+    label: string;
+    active: boolean;
+    onClick: () => void;
+  }) => (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${active ? "bg-orange-50 text-[#F26522]" : "text-gray-500 hover:bg-gray-50"}`}
+    >
+      {React.cloneElement(icon, { size: 18 })}{" "}
+      <span className="hidden md:block">{label}</span>
+    </button>
+  );
+  const StatCard = ({ title, value, icon, bg, className = "" }: any) => (
+    <div
+      className={`p-4 rounded-2xl border border-gray-100 bg-white shadow-sm ${className}`}
+    >
+      <div
+        className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${bg}`}
+      >
+        {icon}
+      </div>
+      <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+        {title}
+      </div>
+      <div className="text-xl font-bold text-gray-900 mt-1">{value}</div>
+    </div>
+  );
+  const renderSidebar = () => (
+    <div className="w-20 md:w-64 bg-white border-r border-gray-100 flex flex-col h-screen fixed left-0 top-0 transition-all z-20">
+      <Link
+        href="/"
+        className="h-16 flex items-center justify-center md:justify-start md:px-6 gap-3 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+      >
+        <div className="w-8 h-8 bg-gradient-to-tr from-[#F26522] to-[#ff8e5e] rounded-xl flex items-center justify-center shadow-sm shadow-orange-200">
+          <BookOpen size={16} className="text-white" />
+        </div>
+        <span className="font-bold text-[15px] text-gray-900 hidden md:block">
+          Marketplace
+        </span>
+      </Link>
+      <nav className="flex-1 px-3 py-4 space-y-1">
+        <NavItem
+          icon={<Calendar />}
+          label="Dashboard"
+          active={activeTab === "dashboard"}
+          onClick={() => {
+            setActiveTab("dashboard");
+            setActiveChat(null);
+          }}
+        />
+        <NavItem
+          icon={<Search />}
+          label="Browse Tutors"
+          active={activeTab === "tutors"}
+          onClick={() => {
+            setActiveTab("tutors");
+            setActiveChat(null);
+          }}
+        />
+        <NavItem
+          icon={<PlayCircle />}
+          label="My Sessions"
+          active={activeTab === "sessions"}
+          onClick={() => {
+            setActiveTab("sessions");
+            setActiveChat(null);
+          }}
+        />
+        <NavItem
+          icon={<MessageSquare />}
+          label="Messages"
+          active={activeTab === "messages"}
+          onClick={() => setActiveTab("messages")}
+        />
+      </nav>
+      <div className="p-3 border-t border-gray-100">
+        <NavItem
+          icon={<Settings />}
+          label="Settings"
+          active={activeTab === "settings"}
+          onClick={() => {
+            setActiveTab("settings");
+            setActiveChat(null);
+          }}
+        />
+        <button
+          onClick={handleLogout}
+          className="flex items-center justify-center md:justify-start gap-3 px-3 md:px-4 py-2.5 text-xs font-semibold text-red-500 rounded-xl hover:bg-red-50 w-full transition-colors mt-1"
+        >
+          <LogOut size={16} /> <span className="hidden md:block">Log out</span>
+        </button>
+      </div>
+    </div>
+  );
+  const renderHeader = () => (
+    <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
+      <div className="flex items-center bg-gray-100/80 rounded-full px-4 py-1.5 w-full max-w-xs border border-transparent focus-within:bg-white focus-within:border-orange-200 focus-within:ring-2 focus-within:ring-orange-50 transition-all">
+        <Search size={14} className="text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search tutors..."
+          className="bg-transparent border-none focus:outline-none ml-2 w-full text-[13px] text-gray-800 placeholder-gray-400"
+        />
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative text-gray-400 hover:text-gray-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+          >
+            <Bell size={16} />
+            {bookings.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#F26522] rounded-full border border-white"></span>
+            )}
+          </button>
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-50 animate-in fade-in zoom-in-95 duration-200">
+              <h3 className="text-[13px] font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <Bell size={14} className="text-[#F26522]" /> Notifications
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {bookings.length > 0 ? (
+                  bookings.map((b: any) => (
+                    <div
+                      key={b.id}
+                      className="p-3 bg-gray-50 rounded-xl text-[12px]"
+                    >
+                      <span className="font-bold text-gray-800">
+                        {b.tutor?.name || "Tutor"}
+                      </span>
+                      <span className="text-gray-500 block mt-0.5">
+                        Session {b.status.toLowerCase()}
+                      </span>
+                      <span className="text-[10px] text-gray-400 mt-1 block">
+                        {new Date(b.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[12px] text-gray-400 text-center py-4">
+                    No new notifications
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 pl-4 border-l border-gray-100">
+          <div className="flex flex-col items-end hidden md:flex">
+            <span className="text-[13px] font-bold text-gray-800 leading-tight">
+              {user.name}
+            </span>
+            <span className="text-[10px] text-gray-400 font-medium">
+              {isVerified ? "Verified" : "Pending"}
+            </span>
+          </div>
+          {user.avatar ? (
+            <img
+              src={user.avatar}
+              alt="User Avatar"
+              className="w-8 h-8 rounded-full object-cover border border-orange-200/50 shadow-sm"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-100 to-orange-50 flex items-center justify-center text-[#F26522] font-bold text-xs border border-orange-200/50 shadow-sm">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+  const renderDashboardTab = () => {
+    if (!isProfileComplete && !isApproved) {
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-md mx-auto">
+          <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-xl text-center">
+            <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 text-[#F26522] border border-orange-100">
+              <Settings size={28} />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight mb-2">
+              Step 2: Profile Completion
+            </h2>
+            <p className="text-[13px] text-gray-500 mb-6 leading-relaxed">
+              Please complete your profile details to submit your account for
+              admin approval.
+            </p>
+            <form
+              onSubmit={handleCompleteProfile}
+              className="space-y-4 text-left"
+            >
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  placeholder="+1 (555) 000-0000"
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] font-medium text-gray-800 transition-all"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isUpdating}
+                className="w-full bg-[#F26522] text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-orange-500/10"
+              >
+                {isUpdating ? "Saving..." : "Submit for Approval"}{" "}
+                <ChevronRight size={16} />
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+    if (user.studentProfile?.status === "REJECTED") {
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-md mx-auto">
+          <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-xl text-center">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 border border-red-100">
+              <X size={28} />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight mb-2">
+              Profile Rejected
+            </h2>
+            <p className="text-[13px] text-gray-500 mb-6 leading-relaxed">
+              Admin has rejected your profile. You can update your phone number
+              below to resubmit for review.
+            </p>
+            <form
+              onSubmit={handleCompleteProfile}
+              className="space-y-4 text-left"
+            >
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] font-medium text-gray-800 transition-all"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isUpdating}
+                className="w-full bg-[#F26522] text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-orange-500/10"
+              >
+                {isUpdating ? "Saving..." : "Resubmit for Approval"}{" "}
+                <ChevronRight size={16} />
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+              Overview
+            </h1>
+            <p className="text-[13px] text-gray-500 mt-0.5">
+              Track your learning progress today.
+            </p>
+          </div>
+          {!isApproved ? (
+            <div className="flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full border border-amber-200/60 text-[11px] font-bold uppercase tracking-wide">
+              <ShieldAlert size={12} /> Pending Approval
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-200/60 text-[11px] font-bold uppercase tracking-wide">
+              <UserCheck size={12} /> Approved Student
+            </div>
+          )}
+        </div>
+        {!isApproved && (
+          <div className="bg-gradient-to-br from-amber-50 to-white rounded-2xl p-5 md:p-6 border border-amber-100 shadow-sm mb-6 flex items-start gap-4">
+            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
+              <Lock size={16} className="text-amber-600" />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-bold text-gray-900">
+                Account Restricted
+              </h2>
+              <p className="text-[13px] text-gray-600 mt-1 max-w-xl leading-relaxed">
+                Admin approval is required before you can book tutors or chat.
+                We are reviewing your profile.
+              </p>
+              <button
+                onClick={fetchData}
+                className="mt-3 text-amber-700 font-bold text-[12px] flex items-center gap-1 hover:text-amber-800"
+              >
+                Refresh Status <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+          <StatCard
+            title="Upcoming"
+            value={bookings
+              .filter((b) => b.status === "CONFIRMED")
+              .length.toString()}
+            icon={<Calendar size={16} className="text-[#F26522]" />}
+            bg="bg-orange-50"
+          />
+          <StatCard
+            title="Hours"
+            value={bookings
+              .filter((b) => b.status === "COMPLETED")
+              .length.toString()}
+            icon={<Clock size={16} className="text-blue-500" />}
+            bg="bg-blue-50"
+          />
+          <StatCard
+            title="Completed"
+            value={bookings
+              .filter((b) => b.status === "COMPLETED")
+              .length.toString()}
+            icon={<Star size={16} className="text-emerald-500" />}
+            bg="bg-emerald-50"
+            className="col-span-2 md:col-span-1"
+          />
+        </div>
+      </div>
+    );
+  };
+  const renderTutorsTab = () => (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 relative">
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+          Tutors
+        </h1>
+        <p className="text-[13px] text-gray-500 mt-0.5">
+          Find the perfect educator.
+        </p>
+      </div>
+      <div className="flex flex-col md:flex-row gap-4 mb-6 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Search by name..."
+            value={filterSearch}
+            onChange={(e) => setFilterSearch(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]"
+          />
+        </div>
+        <div className="w-full md:w-48">
+          <input
+            type="text"
+            placeholder="Subject (e.g. Math)"
+            value={filterSubject}
+            onChange={(e) => setFilterSubject(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]"
+          />
+        </div>
+        <div className="w-full md:w-32 flex gap-2">
+          <input
+            type="number"
+            placeholder="Min Ôé╣"
+            value={filterMinPrice}
+            onChange={(e) => setFilterMinPrice(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]"
+          />
+          <input
+            type="number"
+            placeholder="Max Ôé╣"
+            value={filterMaxPrice}
+            onChange={(e) => setFilterMaxPrice(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]"
+          />
+        </div>
+        <div className="w-full md:w-48">
+          <select
+            value={filterSortBy}
+            onChange={(e) => setFilterSortBy(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px]"
+          >
+            <option value="">Sort By</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="rating_desc">Rating: Highest First</option>
+          </select>
+        </div>
+        <button
+          onClick={() => {
+            setTutorsPage(1);
+            fetchTutors(1);
+          }}
+          className="bg-[#F26522] text-white px-6 py-2 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition shadow-sm"
+        >
+          Search
+        </button>
+      </div>
+      {!isVerified ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100">
+            <Lock size={24} className="text-gray-400" />
+          </div>
+          <h3 className="text-[18px] font-bold text-gray-900">
+            Browsing Locked
+          </h3>
+          <p className="text-[13px] text-gray-500 mt-2 max-w-sm leading-relaxed">
+            Your profile is currently pending Admin approval. You must be
+            verified before you can browse and book tutors.
+          </p>
+        </div>
+      ) : tutors.length === 0 ? (
+        <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center text-gray-400 text-[13px] shadow-sm">
+          No tutors found matching your criteria.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tutors.map((tutor) => (
+              <div
+                key={tutor.id}
+                className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col shadow-sm hover:shadow-md hover:border-orange-100/50 transition-all group"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex gap-3 items-center">
+                    {tutor.user.avatar ? (
+                      <img
+                        src={tutor.user.avatar}
+                        alt={tutor.user.name}
+                        className="w-10 h-10 rounded-full object-cover border border-orange-100 shadow-sm"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-100 to-orange-50 flex items-center justify-center text-[#F26522] font-bold text-[14px] border border-orange-100">
+                        {tutor.user.name.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-[14px] font-bold text-gray-900 flex items-center gap-1">
+                        {tutor.user.name}{" "}
+                        <UserCheck size={12} className="text-[#F26522]" />
+                      </h3>
+                      <p className="text-[11px] text-gray-500 font-medium truncate w-32">
+                        {tutor.subjects?.join(", ") || "Math, CS"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">
+                    <Star size={10} className="text-amber-400 fill-amber-400" />{" "}
+                    4.9
+                  </div>
+                </div>
+                <div className="text-[12px] text-gray-500 leading-relaxed mb-4 line-clamp-2 flex-1">
+                  {tutor.bio ||
+                    "Expert tutor dedicated to interactive and engaging digital classroom sessions."}
+                </div>
+                <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                  <div className="font-bold text-[15px] text-gray-900">
+                    Ôé╣{tutor.hourlyRate}
+                    <span className="text-gray-400 font-medium text-[11px]">
+                      /hr
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedTutor(tutor)}
+                    className="bg-[#F26522] text-white px-4 py-1.5 rounded-lg text-[12px] font-bold hover:bg-[#e05a1a] transition shadow-sm"
+                  >
+                    Book
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Pagination Controls */}
+          {tutorsTotalPages > 1 && (
+            <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
+              <button
+                onClick={() => {
+                  const newPage = Math.max(tutorsPage - 1, 1);
+                  setTutorsPage(newPage);
+                  fetchTutors(newPage);
+                }}
+                disabled={tutorsPage === 1}
+                className="px-4 py-2 text-[12px] font-bold text-gray-500 hover:text-[#F26522] disabled:opacity-50 disabled:hover:text-gray-500 bg-white border border-gray-200 rounded-xl shadow-sm transition-all"
+              >
+                Previous
+              </button>
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: tutorsTotalPages }, (_, i) => i + 1).map(
+                  (p) => (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        setTutorsPage(p);
+                        fetchTutors(p);
+                      }}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                        tutorsPage === p
+                          ? "bg-[#F26522] text-white shadow-sm"
+                          : "bg-white text-gray-600 hover:bg-orange-50 hover:text-[#F26522] border border-gray-200"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ),
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  const newPage = Math.min(tutorsPage + 1, tutorsTotalPages);
+                  setTutorsPage(newPage);
+                  fetchTutors(newPage);
+                }}
+                disabled={tutorsPage === tutorsTotalPages}
+                className="px-4 py-2 text-[12px] font-bold text-gray-500 hover:text-[#F26522] disabled:opacity-50 disabled:hover:text-gray-500 bg-white border border-gray-200 rounded-xl shadow-sm transition-all"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      {selectedTutor && (
+        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setSelectedTutor(null)}
+              className="absolute top-4 right-4 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center mb-4 text-[#F26522]">
+              <Calendar size={20} />
+            </div>
+            <h2 className="text-[18px] font-bold text-gray-900 tracking-tight leading-none mb-1">
+              Book Session
+            </h2>
+            <p className="text-gray-500 text-[13px] mb-6 font-medium">
+              with {selectedTutor.user.name} ÔÇó Ôé╣{selectedTutor.hourlyRate}
+              /hr
+            </p>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Select Date
+                </label>
+                <input
+                  type="date"
+                  value={bookingDate}
+                  onChange={(e) => {
+                    setBookingDate(e.target.value);
+                    setBookingTime("");
+                  }}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none text-[13px] font-medium text-gray-800 transition-all"
+                />
+              </div>
+              {bookingDate && selectedTutor.availabilities && (
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                    Select Time Slot
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const dayOfWeek = new Date(bookingDate).getDay();
+                      const av = selectedTutor.availabilities.find(
+                        (a: any) => a.dayOfWeek === dayOfWeek,
+                      );
+                      if (!av)
+                        return (
+                          <p className="text-[12px] text-gray-400">
+                            Not available on this day.
+                          </p>
+                        );
+                      const slots = [];
+                      const [startH, startM] = av.startTime
+                        .split(":")
+                        .map(Number);
+                      const [endH, endM] = av.endTime.split(":").map(Number);
+                      let curH = startH;
+                      let curM = startM;
+                      while (curH * 60 + curM + 60 <= endH * 60 + endM) {
+                        const slotTime = `${curH.toString().padStart(2, "0")}:${curM.toString().padStart(2, "0")}`;
+                        slots.push(slotTime);
+                        curH += 1; // 1-hour slots
+                      }
+                      if (slots.length === 0)
+                        return (
+                          <p className="text-[12px] text-gray-400">
+                            No 1-hour slots available.
+                          </p>
+                        );
+                      return slots.map((slot) => (
+                        <button
+                          key={slot}
+                          onClick={() => setBookingTime(slot)}
+                          className={`px-3 py-1.5 rounded-lg text-[12px] font-bold border ${bookingTime === slot ? "bg-[#F26522] text-white border-[#F26522]" : "bg-white text-gray-700 border-gray-200 hover:border-[#F26522] hover:text-[#F26522]"}`}
+                        >
+                          {slot}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleBookSlot}
+              disabled={isBooking}
+              className="w-full bg-gray-900 text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-black transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-gray-900/10"
+            >
+              {isBooking ? "Processing..." : "Pay with Razorpay"}{" "}
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  const renderMessagesTab = () => (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col h-[calc(100vh-140px)]">
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+          Messages
+        </h1>
+      </div>
+      <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm flex overflow-hidden">
+        {!isVerified ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50/50">
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-3 shadow-sm border border-gray-100">
+              <Lock size={18} className="text-gray-400" />
+            </div>
+            <h3 className="text-[15px] font-bold text-gray-900">Chat Locked</h3>
+            <p className="text-[13px] text-gray-500 mt-1 max-w-xs leading-relaxed">
+              Book a session to unlock real-time messaging.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col md:flex-row flex-1">
+            <div className="w-full md:w-64 border-r border-gray-100 bg-gray-50/30 flex flex-col shrink-0">
+              <div className="px-5 py-4 font-bold text-[13px] text-gray-800 border-b border-gray-100 flex items-center justify-between">
+                Active Chats
+                <span className="bg-orange-100 text-[#F26522] px-2 py-0.5 rounded-full text-[10px]">
+                  {bookings.filter((b) => b.status === "CONFIRMED").length}
+                </span>
+              </div>
+              <div className="overflow-y-auto flex-1 p-2">
+                {bookings.filter((b) => b.status === "CONFIRMED").length ===
+                0 ? (
+                  <div className="p-4 text-[12px] text-center text-gray-400 font-medium">
+                    No active bookings.
+                  </div>
+                ) : (
+                  bookings
+                    .filter((b) => b.status === "CONFIRMED")
+                    .map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => openChat(b)}
+                        className={`p-3 rounded-xl mb-1 cursor-pointer transition-all ${activeChat?.id === b.id ? "bg-white shadow-sm border border-gray-100" : "hover:bg-gray-100/50 border border-transparent"}`}
+                      >
+                        <div className="font-bold text-[13px] text-gray-900 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                          {b.tutor.name}
+                        </div>
+                        <div className="text-[11px] text-gray-500 mt-0.5 ml-4 font-medium">
+                          {new Date(b.startTime).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+            <div className="flex-1 flex flex-col bg-white">
+              {activeChat ? (
+                <>
+                  <div className="h-14 border-b border-gray-100 flex items-center px-5 shrink-0 bg-white z-10">
+                    <span className="font-bold text-[14px] text-gray-900">
+                      {activeChat.tutor.name}
+                    </span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#fcfcfc]">
+                    {chatPage < chatTotalPages && (
+                      <div className="flex justify-center mb-2">
+                        <button
+                          onClick={() =>
+                            fetchChatHistory(activeChat.id, chatPage + 1, true)
+                          }
+                          disabled={isFetchingChat}
+                          className="text-[11px] font-bold text-gray-500 hover:text-[#F26522] bg-gray-100 hover:bg-orange-50 px-3 py-1 rounded-full border border-gray-200/40 transition disabled:opacity-50"
+                        >
+                          {isFetchingChat
+                            ? "Loading..."
+                            : "Load previous messages"}
+                        </button>
+                      </div>
+                    )}
+                    {chatMessages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`flex ${msg.senderId === user.id ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`px-4 py-2.5 rounded-2xl max-w-[75%] text-[13px] font-medium leading-relaxed ${msg.senderId === user.id ? "bg-[#F26522] text-white rounded-br-sm shadow-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"}`}
+                        >
+                          {msg.message.startsWith("[FILE] ")
+                            ? (() => {
+                                const rawUrl = msg.message.replace(
+                                  "[FILE] ",
+                                  "",
+                                );
+                                const fileUrl = rawUrl.replace(
+                                  "/raw/upload/fl_attachment/",
+                                  "/raw/upload/",
+                                );
+                                const lowerUrl = fileUrl
+                                  .toLowerCase()
+                                  .split("?")[0]
+                                  .split("#")[0];
+                                const isImg =
+                                  lowerUrl.endsWith(".png") ||
+                                  lowerUrl.endsWith(".jpg") ||
+                                  lowerUrl.endsWith(".jpeg") ||
+                                  lowerUrl.endsWith(".gif") ||
+                                  lowerUrl.endsWith(".webp") ||
+                                  lowerUrl.endsWith(".svg") ||
+                                  lowerUrl.endsWith(".bmp");
+                                if (isImg) {
+                                  return (
+                                    <div>
+                                      <a
+                                        href={fileUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        <img
+                                          src={fileUrl}
+                                          alt="Chat attachment"
+                                          className="max-w-[200px] rounded-lg mt-1 border border-white/20"
+                                        />
+                                      </a>
+                                      <button
+                                        onClick={() => forceDownload(fileUrl)}
+                                        className="flex items-center gap-1.5 mt-1.5 text-[11px] opacity-80 hover:opacity-100 hover:underline transition"
+                                      >
+                                        <Download size={12} /> Download
+                                      </button>
+                                    </div>
+                                  );
+                                } else {
+                                  return (
+                                    <div className="flex flex-col gap-1.5">
+                                      <a
+                                        href={fileUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center gap-2 hover:underline font-bold"
+                                      >
+                                        <FileText size={16} /> Open File
+                                      </a>
+                                      <button
+                                        onClick={() => forceDownload(fileUrl)}
+                                        className="flex items-center gap-2 hover:underline font-bold text-left opacity-90 hover:opacity-100 transition"
+                                      >
+                                        <Download size={16} /> Download File
+                                      </button>
+                                    </div>
+                                  );
+                                }
+                              })()
+                            : msg.message}
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                  <div className="p-4 border-t border-gray-100 bg-white flex gap-3 shrink-0 items-center">
+                    <input
+                      type="file"
+                      id="chat-upload"
+                      className="hidden"
+                      onChange={handleFileUpload}
                     />
-                    <button onClick={sendMessage} className="bg-[#F26522] text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#e05a1a] transition-colors shadow-sm">
+                    <label
+                      htmlFor="chat-upload"
+                      className="cursor-pointer text-gray-400 hover:text-[#F26522] transition-colors p-2 bg-gray-50 rounded-full"
+                    >
+                      <Paperclip size={18} />
+                    </label>
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                      placeholder="Type a message..."
+                      className="flex-1 px-4 py-2.5 bg-gray-50 rounded-full border border-gray-200/60 outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 text-[13px] transition-all"
+                    />
+                    <button
+                      onClick={sendMessage}
+                      className="bg-[#F26522] text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#e05a1a] transition-colors shadow-sm"
+                    >
                       <ChevronRight size={18} />
                     </button>
                   </div>
@@ -520,7 +1604,9 @@ export default function StudentDashboard() {
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-gray-300">
                   <MessageSquare size={32} className="mb-3 opacity-40" />
-                  <p className="text-[13px] font-medium">Select a chat to start messaging</p>
+                  <p className="text-[13px] font-medium">
+                    Select a chat to start messaging
+                  </p>
                 </div>
               )}
             </div>
@@ -529,25 +1615,30 @@ export default function StudentDashboard() {
       </div>
     </div>
   );
-
   const renderSessionsTab = () => (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 relative">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Sessions</h1>
+        <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+          Sessions
+        </h1>
       </div>
-
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {!isVerified ? (
           <div className="p-10 text-center flex flex-col items-center">
             <Lock size={32} className="text-gray-300 mb-3" />
             <h3 className="text-[15px] font-bold text-gray-900">Locked</h3>
-            <p className="text-[13px] text-gray-500 mt-1">Admin approval is required.</p>
+            <p className="text-[13px] text-gray-500 mt-1">
+              Admin approval is required.
+            </p>
           </div>
         ) : bookings.length === 0 ? (
           <div className="p-10 text-center flex flex-col items-center">
             <Calendar size={32} className="text-gray-300 mb-3" />
             <h3 className="text-[15px] font-bold text-gray-900">No History</h3>
-            <button onClick={() => setActiveTab('tutors')} className="mt-4 bg-[#F26522] text-white px-5 py-2 rounded-full text-[12px] font-bold hover:bg-[#e05a1a] transition shadow-sm">
+            <button
+              onClick={() => setActiveTab("tutors")}
+              className="mt-4 bg-[#F26522] text-white px-5 py-2 rounded-full text-[12px] font-bold hover:bg-[#e05a1a] transition shadow-sm"
+            >
               Find a Tutor
             </button>
           </div>
@@ -556,99 +1647,210 @@ export default function StudentDashboard() {
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50/50 border-b border-gray-100">
                 <tr>
-                  <th className="px-5 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Tutor</th>
-                  <th className="px-5 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Date & Time</th>
-                  <th className="px-5 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                    Tutor
+                  </th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                    Date & Time
+                  </th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {bookings.map(b => (
-                  <tr key={b.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="px-5 py-4 font-bold text-[13px] text-gray-900">{b.tutor.name}</td>
-                    <td className="px-5 py-4 text-[13px] text-gray-600 font-medium">{new Date(b.startTime).toLocaleString()}</td>
+                {bookings.map((b) => (
+                  <tr
+                    key={b.id}
+                    className="hover:bg-gray-50/50 transition-colors group"
+                  >
+                    <td className="px-5 py-4 font-bold text-[13px] text-gray-900">
+                      {b.tutor.name}
+                    </td>
+                    <td className="px-5 py-4 text-[13px] text-gray-600 font-medium">
+                      {new Date(b.startTime).toLocaleString()}
+                    </td>
                     <td className="px-5 py-4">
-                      <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-md border ${
-                        b.status === 'CONFIRMED' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                        b.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
-                        b.status === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-gray-50 text-gray-600 border-gray-200'
-                      }`}>
+                      <span
+                        className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-md border ${
+                          b.status === "CONFIRMED"
+                            ? "bg-blue-50 text-blue-700 border-blue-100"
+                            : b.status === "COMPLETED"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                              : b.status === "CANCELLED"
+                                ? "bg-red-50 text-red-700 border-red-100"
+                                : "bg-gray-50 text-gray-600 border-gray-200"
+                        }`}
+                      >
                         {b.status}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right flex items-center justify-end gap-2">
-                      {b.status === 'CONFIRMED' && (
-                        <button onClick={() => markCompleted(b.id)} className="text-[#F26522] text-[12px] font-bold hover:underline">Complete</button>
+                      {b.status === "CONFIRMED" && (
+                        <button
+                          onClick={() => markCompleted(b.id)}
+                          className="text-[#F26522] text-[12px] font-bold hover:underline"
+                        >
+                          Complete
+                        </button>
                       )}
-                      {b.status === 'COMPLETED' && (
-                        <button onClick={() => setRatingBooking(b)} className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-black transition shadow-sm">Rate</button>
+                      {b.status === "COMPLETED" && (
+                        <button
+                          onClick={() => setRatingBooking(b)}
+                          className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-black transition shadow-sm"
+                        >
+                          Rate
+                        </button>
                       )}
-                      {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
-                        <button onClick={() => cancelBooking(b.id)} className="text-red-500 text-[12px] font-bold hover:underline">Cancel</button>
+                      {(b.status === "PENDING" || b.status === "CONFIRMED") && (
+                        <button
+                          onClick={() => cancelBooking(b.id)}
+                          className="text-red-500 text-[12px] font-bold hover:underline"
+                        >
+                          Cancel
+                        </button>
                       )}
-                      {(b.status === 'CONFIRMED' || b.status === 'COMPLETED') && (
-                        <button onClick={() => setDisputeBooking(b)} className="text-amber-500 text-[12px] font-bold hover:underline">Dispute</button>
+                      {(b.status === "CONFIRMED" ||
+                        b.status === "COMPLETED") && (
+                        <button
+                          onClick={() => setDisputeBooking(b)}
+                          className="text-amber-500 text-[12px] font-bold hover:underline"
+                        >
+                          Dispute
+                        </button>
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            {/* Bookings Pagination Controls */}
+            {bookingsTotalPages > 1 && (
+              <div className="flex items-center justify-between p-4 bg-gray-50/50 border-t border-gray-100">
+                <button
+                  onClick={() => {
+                    const newPage = Math.max(bookingsPage - 1, 1);
+                    setBookingsPage(newPage);
+                    fetchBookings(newPage);
+                  }}
+                  disabled={bookingsPage === 1}
+                  className="px-4 py-2 text-[12px] font-bold text-gray-500 hover:text-[#F26522] disabled:opacity-50 disabled:hover:text-gray-500 bg-white border border-gray-200 rounded-xl shadow-sm transition-all"
+                >
+                  Previous
+                </button>
+                <span className="text-[12px] font-medium text-gray-500">
+                  Page {bookingsPage} of {bookingsTotalPages}
+                </span>
+                <button
+                  onClick={() => {
+                    const newPage = Math.min(
+                      bookingsPage + 1,
+                      bookingsTotalPages,
+                    );
+                    setBookingsPage(newPage);
+                    fetchBookings(newPage);
+                  }}
+                  disabled={bookingsPage === bookingsTotalPages}
+                  className="px-4 py-2 text-[12px] font-bold text-gray-500 hover:text-[#F26522] disabled:opacity-50 disabled:hover:text-gray-500 bg-white border border-gray-200 rounded-xl shadow-sm transition-all"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
-
       {disputeBooking && (
         <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
-            <button onClick={() => setDisputeBooking(null)} className="absolute top-4 right-4 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+            <button
+              onClick={() => setDisputeBooking(null)}
+              className="absolute top-4 right-4 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
               <X size={16} />
             </button>
-            <h2 className="text-[18px] font-bold text-gray-900 mb-1">Open Dispute</h2>
-            <p className="text-[13px] text-gray-500 mb-4">Report an issue with this session.</p>
-            
+            <h2 className="text-[18px] font-bold text-gray-900 mb-1">
+              Open Dispute
+            </h2>
+            <p className="text-[13px] text-gray-500 mb-4">
+              Report an issue with this session.
+            </p>
             <div className="space-y-4 mb-6">
-              <textarea 
+              <textarea
                 placeholder="Please describe the issue..."
                 value={disputeReason}
-                onChange={e => setDisputeReason(e.target.value)}
+                onChange={(e) => setDisputeReason(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 outline-none text-[13px] h-24 resize-none border border-gray-200"
               ></textarea>
             </div>
-            <button onClick={submitDispute} className="w-full bg-amber-500 text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-amber-600 transition shadow-md">
+            <button
+              onClick={submitDispute}
+              className="w-full bg-amber-500 text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-amber-600 transition shadow-md"
+            >
               Submit Dispute
             </button>
           </div>
         </div>
       )}
-
       {ratingBooking && (
         <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
-            <button onClick={() => setRatingBooking(null)} className="absolute top-4 right-4 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+            <button
+              onClick={() => setRatingBooking(null)}
+              className="absolute top-4 right-4 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
               <X size={16} />
             </button>
-            <h2 className="text-[18px] font-bold text-gray-900 tracking-tight leading-none mb-1">Rate Session</h2>
-            <p className="text-gray-500 text-[13px] mb-6 font-medium">with {ratingBooking.tutor.name}</p>
-            
+            <h2 className="text-[18px] font-bold text-gray-900 tracking-tight leading-none mb-1">
+              Rate Session
+            </h2>
+            <p className="text-gray-500 text-[13px] mb-6 font-medium">
+              with {ratingBooking.tutor.name}
+            </p>
             <div className="space-y-5 mb-6">
               <div>
-                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Rating</label>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Rating
+                </label>
                 <div className="flex gap-1.5">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <button key={star} onClick={() => setRatingVal(star)} className="p-1 hover:scale-110 transition-transform">
-                      <Star size={24} className={star <= ratingVal ? 'text-amber-400 fill-amber-400' : 'text-gray-200'} />
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setRatingVal(star)}
+                      className="p-1 hover:scale-110 transition-transform"
+                    >
+                      <Star
+                        size={24}
+                        className={
+                          star <= ratingVal
+                            ? "text-amber-400 fill-amber-400"
+                            : "text-gray-200"
+                        }
+                      />
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Review</label>
-                <textarea value={ratingComment} onChange={e => setRatingComment(e.target.value)} rows={3} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none resize-none text-[13px] font-medium text-gray-800 transition-all" placeholder="How was it?"></textarea>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Review
+                </label>
+                <textarea
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 outline-none resize-none text-[13px] font-medium text-gray-800 transition-all"
+                  placeholder="How was it?"
+                ></textarea>
               </div>
             </div>
-
-            <button onClick={submitRating} className="w-full bg-[#F26522] text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition flex items-center justify-center gap-2 shadow-md shadow-orange-500/20">
+            <button
+              onClick={submitRating}
+              className="w-full bg-[#F26522] text-white py-3.5 rounded-xl text-[13px] font-bold hover:bg-[#e05a1a] transition flex items-center justify-center gap-2 shadow-md shadow-orange-500/20"
+            >
               Submit Review <ChevronRight size={16} />
             </button>
           </div>
@@ -656,7 +1858,6 @@ export default function StudentDashboard() {
       )}
     </div>
   );
-
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex font-sans selection:bg-orange-100 selection:text-orange-900">
       {renderSidebar()}
@@ -664,67 +1865,132 @@ export default function StudentDashboard() {
         {renderHeader()}
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
           <div className="max-w-5xl mx-auto">
-            {activeTab === 'dashboard' && renderDashboardTab()}
-            {activeTab === 'tutors' && renderTutorsTab()}
-            {activeTab === 'messages' && renderMessagesTab()}
-            {activeTab === 'sessions' && renderSessionsTab()}
-            {activeTab === 'settings' && (
+            {activeTab === "dashboard" && renderDashboardTab()}
+            {activeTab === "tutors" && renderTutorsTab()}
+            {activeTab === "messages" && renderMessagesTab()}
+            {activeTab === "sessions" && renderSessionsTab()}
+            {activeTab === "settings" && (
               <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-sm max-w-2xl animate-in fade-in slide-in-from-bottom-2">
                 <div className="flex items-center gap-4 mb-8 pb-6 border-b border-gray-100">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-orange-100 to-orange-50 flex items-center justify-center text-[#F26522] font-bold text-2xl border border-orange-200/50 shadow-sm">
-                    {user.name.charAt(0).toUpperCase()}
+                  <div className="relative group cursor-pointer w-16 h-16">
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt="Profile Avatar"
+                        className="w-16 h-16 rounded-full object-cover shadow-sm border border-orange-200/50"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-orange-100 to-orange-50 flex items-center justify-center text-[#F26522] font-bold text-2xl border border-orange-200/50 shadow-sm">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/40 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                      <span className="text-[10px] font-bold">Edit</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 tracking-tight">{user.name}</h2>
-                    <p className="text-[13px] text-gray-500 font-medium">{user.email}</p>
+                    <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+                      {user.name}
+                    </h2>
+                    <p className="text-[13px] text-gray-500 font-medium">
+                      {user.email}
+                    </p>
                   </div>
                 </div>
-
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Full Name</label>
-                    <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all" />
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all"
+                    />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
-                    <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all" />
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all"
+                    />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label>
-                    <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all" />
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Phone Number
+                    </label>
+                    <input
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-[13px] font-medium text-gray-800 focus:outline-none focus:bg-white focus:border-orange-200 focus:ring-2 focus:ring-orange-50 transition-all"
+                    />
                   </div>
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                     <div>
-                      <p className="text-[13px] font-bold text-gray-900">Account Status</p>
-                      <p className="text-[11px] text-gray-500 font-medium">Platform approval</p>
+                      <p className="text-[13px] font-bold text-gray-900">
+                        Account Status
+                      </p>
+                      <p className="text-[11px] text-gray-500 font-medium">
+                        Platform approval
+                      </p>
                     </div>
                     {isApproved ? (
-                      <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-emerald-200/60">Approved</span>
-                    ) : user.studentProfile?.status === 'REJECTED' ? (
-                      <span className="bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-rose-200/60">Rejected</span>
+                      <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-emerald-200/60">
+                        Approved
+                      </span>
+                    ) : user.studentProfile?.status === "REJECTED" ? (
+                      <span className="bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-rose-200/60">
+                        Rejected
+                      </span>
                     ) : (
-                      <span className="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-amber-200/60">Pending Approval</span>
+                      <span className="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-amber-200/60">
+                        Pending Approval
+                      </span>
                     )}
                   </div>
                 </div>
-
-                <button onClick={updateProfile} disabled={isUpdating} className="mt-8 bg-gray-900 text-white px-6 py-3 rounded-xl text-[13px] font-bold hover:bg-black transition shadow-sm w-full md:w-auto disabled:opacity-50">
+                <button
+                  onClick={updateProfile}
+                  disabled={isUpdating}
+                  className="mt-8 bg-gray-900 text-white px-6 py-3 rounded-xl text-[13px] font-bold hover:bg-black transition shadow-sm w-full md:w-auto disabled:opacity-50"
+                >
                   {isUpdating ? "Saving..." : "Save Changes"}
                 </button>
-
                 {/* Danger Zone */}
                 <div className="mt-10 pt-6 border-t border-red-100">
                   <div className="flex items-center gap-2 mb-4">
                     <AlertTriangle size={16} className="text-red-500" />
-                    <h3 className="text-[14px] font-bold text-red-600">Danger Zone</h3>
+                    <h3 className="text-[14px] font-bold text-red-600">
+                      Danger Zone
+                    </h3>
                   </div>
                   <div className="bg-red-50/50 rounded-xl p-4 border border-red-100">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[13px] font-bold text-gray-900">Delete Account</p>
-                        <p className="text-[11px] text-gray-500 font-medium mt-0.5">Permanently delete your account and all associated data.</p>
+                        <p className="text-[13px] font-bold text-gray-900">
+                          Delete Account
+                        </p>
+                        <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                          Permanently delete your account and all associated
+                          data.
+                        </p>
                       </div>
-                      <button onClick={deleteAccount} className="bg-red-500 text-white px-4 py-2 rounded-lg text-[12px] font-bold hover:bg-red-600 transition flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={deleteAccount}
+                        className="bg-red-500 text-white px-4 py-2 rounded-lg text-[12px] font-bold hover:bg-red-600 transition flex items-center gap-1.5 shrink-0"
+                      >
                         <Trash2 size={13} /> Delete
                       </button>
                     </div>
@@ -735,46 +2001,87 @@ export default function StudentDashboard() {
           </div>
         </main>
       </div>
-
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl border backdrop-blur-md shadow-2xl animate-in slide-in-from-top-5 duration-300 font-sans max-w-sm ${
-          toast.type === 'success' ? 'bg-emerald-50/90 border-emerald-200/50 text-emerald-800' :
-          toast.type === 'error' ? 'bg-rose-50/90 border-rose-200/50 text-rose-800' :
-          'bg-orange-50/90 border-orange-200/50 text-orange-950'
-        }`}>
-          {toast.type === 'success' && <CheckCircle size={18} className="text-emerald-500 shrink-0" />}
-          {toast.type === 'error' && <ShieldAlert size={18} className="text-rose-500 shrink-0" />}
-          {toast.type === 'info' && <Bell size={18} className="text-[#F26522] shrink-0" />}
-          <span className="text-[13px] font-bold leading-snug">{toast.message}</span>
+        <div
+          className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl border backdrop-blur-md shadow-2xl animate-in slide-in-from-top-5 duration-300 font-sans max-w-sm ${
+            toast.type === "success"
+              ? "bg-emerald-50/90 border-emerald-200/50 text-emerald-800"
+              : toast.type === "error"
+                ? "bg-rose-50/90 border-rose-200/50 text-rose-800"
+                : "bg-orange-50/90 border-orange-200/50 text-orange-950"
+          }`}
+        >
+          {toast.type === "success" && (
+            <CheckCircle size={18} className="text-emerald-500 shrink-0" />
+          )}
+          {toast.type === "error" && (
+            <ShieldAlert size={18} className="text-rose-500 shrink-0" />
+          )}
+          {toast.type === "info" && (
+            <Bell size={18} className="text-[#F26522] shrink-0" />
+          )}
+          <span className="text-[13px] font-bold leading-snug">
+            {toast.message}
+          </span>
         </div>
       )}
     </div>
   );
 }
-
 // --- Helper Components ---
-const NavItem = ({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) => (
-  <button 
+const NavItem = ({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) => (
+  <button
     onClick={onClick}
     className={`w-full flex items-center justify-center md:justify-start gap-3 px-3 md:px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${
-      active ? 'bg-orange-50 text-[#F26522]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+      active
+        ? "bg-orange-50 text-[#F26522]"
+        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
     }`}
   >
-    <div className={`${active ? 'text-[#F26522]' : 'text-gray-400'}`}>
+    <div className={`${active ? "text-[#F26522]" : "text-gray-400"}`}>
       {React.cloneElement(icon as React.ReactElement, { size: 16 } as any)}
     </div>
     <span className="hidden md:block">{label}</span>
   </button>
 );
-
-const StatCard = ({ title, value, icon, bg, className = "" }: { title: string, value: string, icon: React.ReactNode, bg: string, className?: string }) => (
-  <div className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3 ${className}`}>
-    <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
+const StatCard = ({
+  title,
+  value,
+  icon,
+  bg,
+  className = "",
+}: {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  bg: string;
+  className?: string;
+}) => (
+  <div
+    className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3 ${className}`}
+  >
+    <div
+      className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}
+    >
       {icon}
     </div>
     <div>
-      <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">{title}</p>
-      <h4 className="text-[22px] font-black text-gray-900 leading-none">{value}</h4>
+      <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
+        {title}
+      </p>
+      <h4 className="text-[22px] font-black text-gray-900 leading-none">
+        {value}
+      </h4>
     </div>
   </div>
 );

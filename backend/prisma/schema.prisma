@@ -48,6 +48,7 @@ model User {
 
   resetOtpHash   String?
   resetOtpExpiry DateTime?
+  avatar         String?
 }
 
 model StudentProfile {
