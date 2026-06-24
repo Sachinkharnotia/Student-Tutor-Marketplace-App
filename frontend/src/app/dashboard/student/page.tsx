@@ -60,25 +60,6 @@ export default function StudentDashboard() {
   // Rating & Dispute Modal State
   const [ratingBooking, setRatingBooking] = useState<any>(null);
   const [ratingVal, setRatingVal] = useState(5);
-  };
-  const [isLoadingData, setIsLoadingData] = useState(true);
-
-  // Filters
-  const [filterSearch, setFilterSearch] = useState("");
-  const [filterSubject, setFilterSubject] = useState("");
-  const [filterMinPrice, setFilterMinPrice] = useState("");
-  const [filterMaxPrice, setFilterMaxPrice] = useState("");
-  const [filterSortBy, setFilterSortBy] = useState("");
-
-  // Booking Modal State
-  const [selectedTutor, setSelectedTutor] = useState<any>(null);
-  const [bookingDate, setBookingDate] = useState("");
-  const [bookingTime, setBookingTime] = useState("");
-  const [isBooking, setIsBooking] = useState(false);
-
-  // Rating & Dispute Modal State
-  const [ratingBooking, setRatingBooking] = useState<any>(null);
-  const [ratingVal, setRatingVal] = useState(5);
   const [ratingComment, setRatingComment] = useState("");
   
   const [disputeBooking, setDisputeBooking] = useState<any>(null);
@@ -95,9 +76,12 @@ export default function StudentDashboard() {
   const [isFetchingChat, setIsFetchingChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  const [chatError, setChatError] = useState("");
+
   const fetchChatHistory = async (roomId: string, pageNum: number, append = false) => {
     const token = localStorage.getItem("token");
     setIsFetchingChat(true);
+    setChatError("");
     try {
       const res = await fetch(`http://localhost:4000/api/chat/${roomId}/messages?page=${pageNum}&limit=20`, {
         headers: { "Authorization": `Bearer ${token}` }
@@ -105,7 +89,11 @@ export default function StudentDashboard() {
       if (res.ok) {
         const data = await res.json();
         if (append) {
-          setChatMessages(prev => [...data.data, ...prev]);
+          setChatMessages(prev => {
+            const newIds = new Set(data.data.map((m: any) => m.id));
+            const filteredPrev = prev.filter(m => !newIds.has(m.id));
+            return [...data.data, ...filteredPrev];
+          });
         } else {
           setChatMessages(data.data || []);
           setTimeout(() => {
@@ -114,9 +102,12 @@ export default function StudentDashboard() {
         }
         setChatPage(data.pagination.page);
         setChatTotalPages(data.pagination.totalPages);
+      } else {
+        setChatError("Failed to load messages.");
       }
     } catch (err) {
       console.error("Failed to fetch chat history:", err);
+      setChatError("Connection error. Could not load messages.");
     } finally {
       setIsFetchingChat(false);
     }
@@ -206,7 +197,10 @@ export default function StudentDashboard() {
     setSocket(newSocket);
 
     newSocket.on("receive_message", (data) => {
-      setChatMessages((prev) => [...prev, data]);
+      setChatMessages((prev) => {
+        if (prev.some(msg => msg.id === data.id)) return prev;
+        return [...prev, data];
+      });
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 50);
@@ -506,6 +500,131 @@ export default function StudentDashboard() {
         const messageData = { room: activeChat.id, senderId: user.id, content: `[FILE] ${data.url}`, message: `[FILE] ${data.url}` };
         socket.emit("send_message", messageData);
         showToast("File sent!", "success");
+      } else {
+        showToast("Upload failed", "error");
+      }
+    } catch (err) {
+      showToast("Upload error", "error");
+    }
+  };
+
+  const renderMessagesTab = () => (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col h-[calc(100vh-140px)]">
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Messages</h1>
+      </div>
+
+      <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm flex overflow-hidden">
+        {!isVerified ? (
+           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50/50">
+             <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-3 shadow-sm border border-gray-100">
+               <Lock size={18} className="text-gray-400" />
+             </div>
+             <h3 className="text-[15px] font-bold text-gray-900">Chat Locked</h3>
+             <p className="text-[13px] text-gray-500 mt-1 max-w-xs leading-relaxed">Admin verification required to message tutors.</p>
+           </div>
+        ) : (
+          <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+            <div className="w-full md:w-64 border-r border-gray-100 bg-gray-50/30 flex flex-col shrink-0">
+              <div className="px-5 py-4 font-bold text-[13px] text-gray-800 border-b border-gray-100 flex items-center justify-between">
+                Active Bookings
+                <span className="bg-orange-100 text-[#F26522] px-2 py-0.5 rounded-full text-[10px]">{bookings.filter(b => b.status === 'CONFIRMED').length}</span>
+              </div>
+              <div className="overflow-y-auto flex-1 p-2">
+                {bookings.filter(b => b.status === 'CONFIRMED').length === 0 ? (
+                  <div className="p-4 text-[12px] text-center text-gray-400 font-medium">No active tutors.</div>
+                ) : (
+                  bookings.filter(b => b.status === 'CONFIRMED').map(b => (
+                    <div key={b.id} onClick={() => openChat(b)} className={`p-3 rounded-xl mb-1 cursor-pointer transition-all ${activeChat?.id === b.id ? 'bg-white shadow-sm border border-gray-100' : 'hover:bg-gray-100/50 border border-transparent'}`}>
+                      <div className="font-bold text-[13px] text-gray-900 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-[#F26522]"></div>
+                        {b.tutor.name}
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-0.5 ml-4 font-medium">{new Date(b.startTime).toLocaleDateString()}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 flex flex-col bg-white overflow-hidden relative">
+              {activeChat ? (
+                <>
+                  <div className="h-14 border-b border-gray-100 flex items-center px-5 shrink-0 bg-white z-10">
+                    <span className="font-bold text-[14px] text-gray-900">{activeChat.tutor.name}</span>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#fcfcfc]">
+                    {isFetchingChat ? (
+                      <div className="space-y-4">
+                        <div className="flex justify-start">
+                          <div className="w-48 h-10 bg-gray-200 animate-pulse rounded-2xl rounded-bl-sm"></div>
+                        </div>
+                        <div className="flex justify-end">
+                          <div className="w-64 h-12 bg-orange-100 animate-pulse rounded-2xl rounded-br-sm"></div>
+                        </div>
+                        <div className="flex justify-start">
+                          <div className="w-32 h-10 bg-gray-200 animate-pulse rounded-2xl rounded-bl-sm"></div>
+                        </div>
+                      </div>
+                    ) : chatError ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <AlertTriangle size={32} className="text-amber-500 mb-3" />
+                        <p className="text-[13px] font-bold text-gray-900 mb-1">Failed to load history</p>
+                        <p className="text-[12px] text-gray-500 mb-4">{chatError}</p>
+                        <button onClick={() => fetchChatHistory(activeChat.id, 1, false)} className="px-4 py-2 bg-[#F26522] text-white rounded-xl text-[12px] font-bold hover:bg-[#e05a1a] transition">
+                          Retry
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {chatMessages.map((msg, i) => (
+                          <div key={i} className={`flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`px-4 py-2.5 rounded-2xl max-w-[75%] text-[13px] font-medium leading-relaxed ${msg.senderId === user.id ? 'bg-[#F26522] text-white rounded-br-sm shadow-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
+                              {msg.message.startsWith('[FILE] ') ? (
+                                (() => {
+                                  const rawUrl = msg.message.replace('[FILE] ', '');
+                                  const fileUrl = rawUrl.replace('/raw/upload/fl_attachment/', '/raw/upload/');
+                                  const lowerUrl = fileUrl.toLowerCase().split('?')[0].split('#')[0];
+                                  const isImg = lowerUrl.endsWith('.png') || lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg') || lowerUrl.endsWith('.gif') || lowerUrl.endsWith('.webp') || lowerUrl.endsWith('.svg') || lowerUrl.endsWith('.bmp');
+                                  if (isImg) {
+                                    return (
+                                      <div>
+                                        <a href={fileUrl} target="_blank" rel="noreferrer">
+                                          <img src={fileUrl} alt="Chat attachment" className="max-w-[200px] rounded-lg mt-1 border border-white/20" />
+                                        </a>
+                                        <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-1.5 mt-1.5 text-[11px] opacity-80 hover:opacity-100 hover:underline transition">
+                                          <Download size={12} /> Download
+                                        </button>
+                                      </div>
+                                    );
+                                  } else {
+                                    return (
+                                      <div className="flex flex-col gap-1.5">
+                                        <a href={fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:underline font-bold">
+                                          <FileText size={16} /> Open File
+                                        </a>
+                                        <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-2 hover:underline font-bold text-left opacity-90 hover:opacity-100 transition">
+                                          <Download size={16} /> Download File
+                                        </button>
+                                      </div>
+                                    );
+                                  }
+                                })()
+                              ) : (
+                                msg.message
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                      </>
+                    )}
+                  </div>
+                  <div className="p-4 border-t border-gray-100 bg-white flex gap-3 shrink-0 items-center">
+                    <input type="file" id="chat-upload" className="hidden" onChange={handleFileUpload} />
+                    <label htmlFor="chat-upload" className="cursor-pointer text-gray-400 hover:text-[#F26522] transition-colors p-2 bg-gray-50 rounded-full">
+                      <Paperclip size={18} />
                     </label>
                     <input 
                       type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()}

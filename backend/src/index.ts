@@ -72,19 +72,8 @@ io.on('connection', (socket) => {
     socket.join(bookingId);
     console.log(`User with ID: ${socket.id} joined room: ${bookingId}`);
     try {
-      const messages = await prisma.message.findMany({
-        where: { roomId: bookingId },
-        orderBy: { createdAt: 'asc' },
-      });
-
-      socket.emit('room_history', {
-        roomId: bookingId,
-        messages: messages.map((message) => ({
-          ...message,
-          room: message.roomId,
-          message: message.content,
-        })),
-      });
+      // Chat history is now fetched via REST API (GET /api/chat/:roomId/messages)
+      // to support pagination. We no longer emit full history on join.
     } catch (error) {
       console.error('Failed to load chat history:', error);
       socket.emit('chat_error', { error: 'Failed to load chat history' });

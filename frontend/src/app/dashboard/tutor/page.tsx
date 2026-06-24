@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { io, Socket } from "socket.io-client";
@@ -69,6 +69,46 @@ export default function TutorDashboard() {
   const [activeChat, setActiveChat] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [chatPage, setChatPage] = useState(1);
+  const [chatTotalPages, setChatTotalPages] = useState(1);
+  const [isFetchingChat, setIsFetchingChat] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [chatError, setChatError] = useState("");
+
+  const fetchChatHistory = async (roomId: string, pageNum: number, append = false) => {
+    const token = localStorage.getItem("token");
+    setIsFetchingChat(true);
+    setChatError("");
+    try {
+      const res = await fetch(`http://localhost:4000/api/chat/${roomId}/messages?page=${pageNum}&limit=20`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (append) {
+          setChatMessages(prev => {
+            const newIds = new Set(data.data.map((m: any) => m.id));
+            const filteredPrev = prev.filter(m => !newIds.has(m.id));
+            return [...data.data, ...filteredPrev];
+          });
+        } else {
+          setChatMessages(data.data || []);
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "instant" as any });
+          }, 50);
+        }
+        setChatPage(data.pagination.page);
+        setChatTotalPages(data.pagination.totalPages);
+      } else {
+        setChatError("Failed to load messages.");
+      }
+    } catch (err) {
+      console.error("Failed to fetch chat history:", err);
+      setChatError("Connection error. Could not load messages.");
+    } finally {
+      setIsFetchingChat(false);
+    }
+  };
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -98,7 +138,13 @@ export default function TutorDashboard() {
     const newSocket = io("http://localhost:4000");
     setSocket(newSocket);
     newSocket.on("receive_message", (data) => {
-      setChatMessages((prev) => [...prev, data]);
+      setChatMessages((prev) => {
+        if (prev.some(msg => msg.id === data.id)) return prev;
+        return [...prev, data];
+      });
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
     });
     newSocket.on("room_history", (data) => {
       setChatMessages(data.messages || []);
@@ -218,6 +264,8 @@ export default function TutorDashboard() {
   const openChat = (booking: any) => {
     setActiveChat(booking);
     setChatMessages([]);
+    localStorage.setItem("activeChatId", booking.id);
+    fetchChatHistory(booking.id, 1, false);
     if (socket) socket.emit("join_room", booking.id);
   };
 
@@ -732,45 +780,71 @@ export default function TutorDashboard() {
                     <span className="font-bold text-[14px] text-gray-900">{activeChat.student.name}</span>
                   </div>
                   <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#fcfcfc]">
-                    {chatMessages.map((msg, i) => (
-                      <div key={i} className={`flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`px-4 py-2.5 rounded-2xl max-w-[75%] text-[13px] font-medium leading-relaxed ${msg.senderId === user.id ? 'bg-[#F26522] text-white rounded-br-sm shadow-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
-                          {msg.message.startsWith('[FILE] ') ? (
-                            (() => {
-                              const rawUrl = msg.message.replace('[FILE] ', '');
-                              const fileUrl = rawUrl.replace('/raw/upload/fl_attachment/', '/raw/upload/');
-                              const lowerUrl = fileUrl.toLowerCase().split('?')[0].split('#')[0];
-                              const isImg = lowerUrl.endsWith('.png') || lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg') || lowerUrl.endsWith('.gif') || lowerUrl.endsWith('.webp') || lowerUrl.endsWith('.svg') || lowerUrl.endsWith('.bmp');
-                              if (isImg) {
-                                return (
-                                  <div>
-                                    <a href={fileUrl} target="_blank" rel="noreferrer">
-                                      <img src={fileUrl} alt="Chat attachment" className="max-w-[200px] rounded-lg mt-1 border border-white/20" />
-                                    </a>
-                                    <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-1.5 mt-1.5 text-[11px] opacity-80 hover:opacity-100 hover:underline transition">
-                                      <Download size={12} /> Download
-                                    </button>
-                                  </div>
-                                );
-                              } else {
-                                return (
-                                  <div className="flex flex-col gap-1.5">
-                                    <a href={fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:underline font-bold">
-                                      <FileText size={16} /> Open File
-                                    </a>
-                                    <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-2 hover:underline font-bold text-left opacity-90 hover:opacity-100 transition">
-                                      <Download size={16} /> Download File
-                                    </button>
-                                  </div>
-                                );
-                              }
-                            })()
-                          ) : (
-                            msg.message
-                          )}
+                    {isFetchingChat ? (
+                      <div className="space-y-4">
+                        <div className="flex justify-start">
+                          <div className="w-48 h-10 bg-gray-200 animate-pulse rounded-2xl rounded-bl-sm"></div>
+                        </div>
+                        <div className="flex justify-end">
+                          <div className="w-64 h-12 bg-orange-100 animate-pulse rounded-2xl rounded-br-sm"></div>
+                        </div>
+                        <div className="flex justify-start">
+                          <div className="w-32 h-10 bg-gray-200 animate-pulse rounded-2xl rounded-bl-sm"></div>
                         </div>
                       </div>
-                    ))}
+                    ) : chatError ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <AlertTriangle size={32} className="text-amber-500 mb-3" />
+                        <p className="text-[13px] font-bold text-gray-900 mb-1">Failed to load history</p>
+                        <p className="text-[12px] text-gray-500 mb-4">{chatError}</p>
+                        <button onClick={() => fetchChatHistory(activeChat.id, 1, false)} className="px-4 py-2 bg-[#F26522] text-white rounded-xl text-[12px] font-bold hover:bg-[#e05a1a] transition">
+                          Retry
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {chatMessages.map((msg, i) => (
+                          <div key={i} className={`flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`px-4 py-2.5 rounded-2xl max-w-[75%] text-[13px] font-medium leading-relaxed ${msg.senderId === user.id ? 'bg-[#F26522] text-white rounded-br-sm shadow-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
+                              {msg.message.startsWith('[FILE] ') ? (
+                                (() => {
+                                  const rawUrl = msg.message.replace('[FILE] ', '');
+                                  const fileUrl = rawUrl.replace('/raw/upload/fl_attachment/', '/raw/upload/');
+                                  const lowerUrl = fileUrl.toLowerCase().split('?')[0].split('#')[0];
+                                  const isImg = lowerUrl.endsWith('.png') || lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg') || lowerUrl.endsWith('.gif') || lowerUrl.endsWith('.webp') || lowerUrl.endsWith('.svg') || lowerUrl.endsWith('.bmp');
+                                  if (isImg) {
+                                    return (
+                                      <div>
+                                        <a href={fileUrl} target="_blank" rel="noreferrer">
+                                          <img src={fileUrl} alt="Chat attachment" className="max-w-[200px] rounded-lg mt-1 border border-white/20" />
+                                        </a>
+                                        <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-1.5 mt-1.5 text-[11px] opacity-80 hover:opacity-100 hover:underline transition">
+                                          <Download size={12} /> Download
+                                        </button>
+                                      </div>
+                                    );
+                                  } else {
+                                    return (
+                                      <div className="flex flex-col gap-1.5">
+                                        <a href={fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:underline font-bold">
+                                          <FileText size={16} /> Open File
+                                        </a>
+                                        <button onClick={() => forceDownload(fileUrl)} className="flex items-center gap-2 hover:underline font-bold text-left opacity-90 hover:opacity-100 transition">
+                                          <Download size={16} /> Download File
+                                        </button>
+                                      </div>
+                                    );
+                                  }
+                                })()
+                              ) : (
+                                msg.message
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                      </>
+                    )}
                   </div>
                   <div className="p-4 border-t border-gray-100 bg-white flex gap-3 shrink-0 items-center">
                     <input type="file" id="chat-upload" className="hidden" onChange={handleFileUpload} />
