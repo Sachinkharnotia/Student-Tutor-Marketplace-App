@@ -50,8 +50,9 @@ export const updateUserSchema = z.object({
   body: z.object({
     name: z.string().trim().min(1, 'Name cannot be empty').optional(),
     email: z.string().trim().email('Invalid email format').optional(),
-  }).refine(data => data.name !== undefined || data.email !== undefined, {
-    message: "At least one of name or email must be provided for update",
+    avatar: z.string().trim().optional().nullable(),
+  }).refine(data => data.name !== undefined || data.email !== undefined || data.avatar !== undefined, {
+    message: "At least one of name, email or avatar must be provided for update",
     path: ["name"]
   }),
 });

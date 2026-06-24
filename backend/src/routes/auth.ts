@@ -368,6 +368,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
         email: user.email, 
         role: user.role, 
         isVerified: user.isVerified,
+        avatar: user.avatar,
         studentProfile: user.studentProfile,
         tutorProfile: user.tutorProfile
       } 
@@ -388,7 +389,7 @@ router.get('/me', authenticate, async (req: any, res) => {
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
     console.log(`API [GET /me] called by User: ${user.name} (${user.email}) - ID: ${user.id}`);
-    res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, isVerified: user.isVerified, tutorProfile: user.tutorProfile, studentProfile: user.studentProfile } });
+    res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, isVerified: user.isVerified, avatar: user.avatar, tutorProfile: user.tutorProfile, studentProfile: user.studentProfile } });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -396,7 +397,7 @@ router.get('/me', authenticate, async (req: any, res) => {
 
 router.put('/update', authenticate, validate(updateUserSchema), async (req: any, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, avatar } = req.body;
     
     // Check if email is already taken by someone else
     if (email) {
@@ -408,7 +409,11 @@ router.put('/update', authenticate, validate(updateUserSchema), async (req: any,
 
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
-      data: { name, email },
+      data: { 
+        name, 
+        email,
+        ...(avatar !== undefined ? { avatar } : {})
+      },
       include: { studentProfile: true, tutorProfile: true }
     });
 
